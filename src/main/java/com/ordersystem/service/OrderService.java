@@ -43,7 +43,7 @@ public class OrderService {
 
     // PERF-03: sequence PostgreSQL garante unicidade sem loop de retentativas
     private String generateOrderCode() {
-        return String.format("%05d", orderRepository.getNextOrderCode());
+        return String.format("%08d", orderRepository.getNextOrderCode());
     }
 
     @Transactional

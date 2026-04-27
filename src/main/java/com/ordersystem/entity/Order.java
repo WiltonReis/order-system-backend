@@ -45,7 +45,7 @@ public class Order {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal discount = BigDecimal.ZERO;
 
-    @Column(unique = true)
+    @Column(unique = true, length = 8)
     private String orderCode;
 
     @Column
