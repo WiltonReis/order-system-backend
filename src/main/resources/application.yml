@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://localhost:5433/order_system
-    username: postgres
-    password: postgres
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -23,8 +23,9 @@ server:
   port: 8080
 
 jwt:
-  # Base64-encoded secret — MUST be changed in production (min 32 bytes decoded)
-  secret: aHR0cHM6Ly93d3cuZXhhbXBsZS5jb20vc2VjcmV0LWtleQ==
+  # Produção: definir JWT_SECRET como variável de ambiente (min 32 bytes em Base64).
+  # Fallback abaixo é APENAS para desenvolvimento local — nunca usar em produção.
+  secret: ${JWT_SECRET:dGhpcy1pcy1hLWRldi1vbmx5LXNlY3JldC1rZXktbWluLTMyLWJ5dGVz}
   expiration: 86400000  # 24 hours in milliseconds
 
 logging:
