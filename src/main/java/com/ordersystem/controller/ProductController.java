@@ -8,6 +8,9 @@ import com.ordersystem.dto.response.ProductResponse;
 import com.ordersystem.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,9 +30,17 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(productService.create(request));
     }
 
-    @GetMapping
+    // Retorna lista completa — usada pelo OrderFormDialog para popular o dropdown de produtos
+    @GetMapping("/all")
     public ResponseEntity<List<ProductResponse>> findAll() {
         return ResponseEntity.ok(productService.findAll());
+    }
+
+    // Versão paginada — usada pela tela de gerenciamento de produtos
+    @GetMapping
+    public ResponseEntity<Page<ProductResponse>> findAllPaged(
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
+        return ResponseEntity.ok(productService.findAllPaged(pageable));
     }
 
     @PutMapping("/{id}")

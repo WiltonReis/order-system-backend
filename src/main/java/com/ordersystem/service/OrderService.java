@@ -17,6 +17,9 @@ import com.ordersystem.repository.OrderRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,7 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -37,14 +41,9 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
 
-    private static final Random RANDOM = new Random();
-
-    private String generateUniqueOrderCode() {
-        String code;
-        do {
-            code = String.format("%05d", RANDOM.nextInt(100000));
-        } while (orderRepository.existsByOrderCode(code));
-        return code;
+    // PERF-03: sequence PostgreSQL garante unicidade sem loop de retentativas
+    private String generateOrderCode() {
+        return String.format("%05d", orderRepository.getNextOrderCode());
     }
 
     @Transactional
@@ -57,7 +56,7 @@ public class OrderService {
         order.setStatus(OrderStatus.OPEN);
         order.setCreatedAt(LocalDateTime.now());
         order.setUser(user);
-        order.setOrderCode(generateUniqueOrderCode());
+        order.setOrderCode(generateOrderCode());
         if (request != null && request.getCustomerName() != null && !request.getCustomerName().isBlank()) {
             order.setCustomerName(request.getCustomerName().trim());
         }
@@ -66,25 +65,43 @@ public class OrderService {
         return toOrderResponse(saved);
     }
 
+    // PERF-01: busca todos os pedidos com itens em duas queries, sem N+1
     @Transactional(readOnly = true)
-    public List<OrderListResponse> findAll() {
-        return orderRepository.findAllWithUsers().stream()
-                .map(this::toOrderListResponse)
+    public Page<OrderDetailResponse> findAllDetails(Pageable pageable) {
+        Page<UUID> idsPage = orderRepository.findAllIdsPaged(pageable);
+        List<UUID> ids = idsPage.getContent();
+        if (ids.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+        List<Order> orders = orderRepository.findAllWithDetailsByIds(ids);
+        // Mantém a ordem original dos IDs retornados pela query paginada
+        Map<UUID, Order> orderMap = orders.stream()
+                .collect(Collectors.toMap(Order::getId, o -> o));
+        List<OrderDetailResponse> content = ids.stream()
+                .map(orderMap::get)
+                .filter(Objects::nonNull)
+                .map(this::toOrderDetailResponse)
                 .collect(Collectors.toList());
+        return new PageImpl<>(content, pageable, idsPage.getTotalElements());
     }
 
     @Transactional(readOnly = true)
-    public List<OrderListResponse> findActive() {
-        return orderRepository.findAllWithUsersByStatus(OrderStatus.OPEN).stream()
-                .map(this::toOrderListResponse)
-                .collect(Collectors.toList());
+    public Page<OrderListResponse> findAll(Pageable pageable) {
+        return orderRepository.findAllWithUsersPaged(pageable)
+                .map(this::toOrderListResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<OrderListResponse> findHistory() {
-        return orderRepository.findAllWithUsersByStatusIn(List.of(OrderStatus.COMPLETED, OrderStatus.CANCELED)).stream()
-                .map(this::toOrderListResponse)
-                .collect(Collectors.toList());
+    public Page<OrderListResponse> findActive(Pageable pageable) {
+        return orderRepository.findAllWithUsersByStatusPaged(OrderStatus.OPEN, pageable)
+                .map(this::toOrderListResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<OrderListResponse> findHistory(Pageable pageable) {
+        return orderRepository.findAllWithUsersByStatusInPaged(
+                List.of(OrderStatus.COMPLETED, OrderStatus.CANCELED), pageable)
+                .map(this::toOrderListResponse);
     }
 
     @Transactional(readOnly = true)

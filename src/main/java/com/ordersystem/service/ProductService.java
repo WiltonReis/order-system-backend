@@ -8,6 +8,8 @@ import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +44,11 @@ public class ProductService {
         return productRepository.findAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProductResponse> findAllPaged(Pageable pageable) {
+        return productRepository.findAll(pageable).map(this::toResponse);
     }
 
     @Transactional

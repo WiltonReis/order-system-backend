@@ -8,11 +8,14 @@ import com.ordersystem.dto.response.*;
 import com.ordersystem.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -27,19 +30,29 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.create(request));
     }
 
+    // PERF-01 + PERF-02: retorna pedidos completos (com itens) paginados, sem N+1
+    @GetMapping("/details")
+    public ResponseEntity<Page<OrderDetailResponse>> findAllDetails(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(orderService.findAllDetails(pageable));
+    }
+
     @GetMapping
-    public ResponseEntity<List<OrderListResponse>> findAll() {
-        return ResponseEntity.ok(orderService.findAll());
+    public ResponseEntity<Page<OrderListResponse>> findAll(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(orderService.findAll(pageable));
     }
 
     @GetMapping("/active")
-    public ResponseEntity<List<OrderListResponse>> findActive() {
-        return ResponseEntity.ok(orderService.findActive());
+    public ResponseEntity<Page<OrderListResponse>> findActive(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(orderService.findActive(pageable));
     }
 
     @GetMapping("/history")
-    public ResponseEntity<List<OrderListResponse>> findHistory() {
-        return ResponseEntity.ok(orderService.findHistory());
+    public ResponseEntity<Page<OrderListResponse>> findHistory(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(orderService.findHistory(pageable));
     }
 
     @GetMapping("/{id}")
