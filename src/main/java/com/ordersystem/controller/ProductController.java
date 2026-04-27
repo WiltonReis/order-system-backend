@@ -1,10 +1,10 @@
 package com.ordersystem.controller;
 
+import com.ordersystem.dto.request.ProductPriceRequest;
 import com.ordersystem.dto.request.ProductRequest;
 import com.ordersystem.dto.request.ProductUpdateRequest;
 import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.ProductResponse;
-import com.ordersystem.dto.response.ProductSummaryResponse;
 import com.ordersystem.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,14 +28,20 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductSummaryResponse>> findAll() {
+    public ResponseEntity<List<ProductResponse>> findAll() {
         return ResponseEntity.ok(productService.findAll());
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductSummaryResponse> update(@PathVariable UUID id,
-                                                         @Valid @RequestBody ProductUpdateRequest request) {
+    public ResponseEntity<ProductResponse> update(@PathVariable UUID id,
+                                                  @Valid @RequestBody ProductUpdateRequest request) {
         return ResponseEntity.ok(productService.update(id, request));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<ProductResponse> updatePrice(@PathVariable UUID id,
+                                                       @Valid @RequestBody ProductPriceRequest request) {
+        return ResponseEntity.ok(productService.updatePrice(id, request.getPrice()));
     }
 
     @DeleteMapping("/{id}")

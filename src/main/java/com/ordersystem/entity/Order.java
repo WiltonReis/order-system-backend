@@ -30,11 +30,29 @@ public class Order {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column
+    private LocalDateTime completedAt;
+
+    @Column
+    private LocalDateTime canceledAt;
+
+    @Column
+    private String customerName;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal total = BigDecimal.ZERO;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal discount = BigDecimal.ZERO;
+
+    @Column(unique = true)
+    private String orderCode;
+
+    @Column
+    private String completedByUsername;
+
+    @Column
+    private String canceledByUsername;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

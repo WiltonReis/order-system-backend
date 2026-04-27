@@ -1,6 +1,8 @@
 package com.ordersystem.controller;
 
 import com.ordersystem.dto.request.UserRequest;
+import com.ordersystem.dto.request.UserRoleRequest;
+import com.ordersystem.dto.request.UserUpdateRequest;
 import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.UserResponse;
 import com.ordersystem.service.UserService;
@@ -32,8 +34,14 @@ public class UserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<UserResponse> update(@PathVariable UUID id,
-                                               @Valid @RequestBody UserRequest request) {
+                                               @Valid @RequestBody UserUpdateRequest request) {
         return ResponseEntity.ok(userService.update(id, request));
+    }
+
+    @PatchMapping("/{id}/role")
+    public ResponseEntity<UserResponse> updateRole(@PathVariable UUID id,
+                                                   @Valid @RequestBody UserRoleRequest request) {
+        return ResponseEntity.ok(userService.updateRole(id, request.getRole()));
     }
 
     @DeleteMapping("/{id}")

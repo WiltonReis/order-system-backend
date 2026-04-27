@@ -1,27 +1,22 @@
 package com.ordersystem.dto.request;
 
+import com.ordersystem.enums.Role;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.math.BigDecimal;
-
 @Getter
 @Setter
 @NoArgsConstructor
-public class ProductRequest {
+public class UserUpdateRequest {
 
     @NotBlank
-    private String name;
+    private String username;
 
-    @Size(max = 200)
-    private String description;
+    private String password;
 
     @NotNull
-    @Positive
-    private BigDecimal price;
+    private Role role;
 }

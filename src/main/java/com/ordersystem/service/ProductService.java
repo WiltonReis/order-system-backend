@@ -4,14 +4,15 @@ import com.ordersystem.dto.request.ProductRequest;
 import com.ordersystem.dto.request.ProductUpdateRequest;
 import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.ProductResponse;
-import com.ordersystem.dto.response.ProductSummaryResponse;
 import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,32 +25,45 @@ public class ProductService {
 
     @Transactional
     public ProductResponse create(ProductRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
         Product product = new Product();
+        product.setName(request.getName());
+        product.setDescription(request.getDescription());
+        product.setPrice(request.getPrice());
+        product.setCreatedByUsername(username);
+
+        Product saved = productRepository.save(product);
+        return toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductResponse> findAll() {
+        return productRepository.findAll().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ProductResponse update(UUID id, ProductUpdateRequest request) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", id));
+
         product.setName(request.getName());
         product.setDescription(request.getDescription());
         product.setPrice(request.getPrice());
 
         Product saved = productRepository.save(product);
-        return toFullResponse(saved);
-    }
-
-    @Transactional(readOnly = true)
-    public List<ProductSummaryResponse> findAll() {
-        return productRepository.findAll().stream()
-                .map(this::toSummaryResponse)
-                .collect(Collectors.toList());
+        return toResponse(saved);
     }
 
     @Transactional
-    public ProductSummaryResponse update(UUID id, ProductUpdateRequest request) {
+    public ProductResponse updatePrice(UUID id, BigDecimal price) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
-
-        product.setName(request.getName());
-        product.setPrice(request.getPrice());
-
+        product.setPrice(price);
         Product saved = productRepository.save(product);
-        return toSummaryResponse(saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -61,20 +75,13 @@ public class ProductService {
         return new MessageResponse("Product deleted successfully");
     }
 
-    private ProductResponse toFullResponse(Product product) {
+    private ProductResponse toResponse(Product product) {
         return new ProductResponse(
                 product.getId(),
                 product.getName(),
                 product.getDescription(),
-                product.getPrice()
-        );
-    }
-
-    private ProductSummaryResponse toSummaryResponse(Product product) {
-        return new ProductSummaryResponse(
-                product.getId(),
-                product.getName(),
-                product.getPrice()
+                product.getPrice(),
+                product.getImageUrl()
         );
     }
 }

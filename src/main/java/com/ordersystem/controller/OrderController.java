@@ -23,13 +23,23 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderResponse> create(@Valid @RequestBody OrderRequest request) {
+    public ResponseEntity<OrderResponse> create(@RequestBody(required = false) OrderRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.create(request));
     }
 
     @GetMapping
     public ResponseEntity<List<OrderListResponse>> findAll() {
         return ResponseEntity.ok(orderService.findAll());
+    }
+
+    @GetMapping("/active")
+    public ResponseEntity<List<OrderListResponse>> findActive() {
+        return ResponseEntity.ok(orderService.findActive());
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<OrderListResponse>> findHistory() {
+        return ResponseEntity.ok(orderService.findHistory());
     }
 
     @GetMapping("/{id}")
@@ -42,6 +52,16 @@ public class OrderController {
     public ResponseEntity<OrderUpdateResponse> applyDiscount(@PathVariable UUID id,
                                                              @Valid @RequestBody OrderUpdateRequest request) {
         return ResponseEntity.ok(orderService.applyDiscount(id, request));
+    }
+
+    @PutMapping("/{id}/complete")
+    public ResponseEntity<OrderResponse> complete(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.completeOrder(id));
+    }
+
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<OrderResponse> cancel(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.cancelOrder(id));
     }
 
     @DeleteMapping("/{id}")

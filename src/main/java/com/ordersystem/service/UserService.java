@@ -1,9 +1,11 @@
 package com.ordersystem.service;
 
 import com.ordersystem.dto.request.UserRequest;
+import com.ordersystem.dto.request.UserUpdateRequest;
 import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.UserResponse;
 import com.ordersystem.entity.User;
+import com.ordersystem.enums.Role;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.UserRepository;
@@ -11,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -46,7 +49,7 @@ public class UserService {
     }
 
     @Transactional
-    public UserResponse update(UUID id, UserRequest request) {
+    public UserResponse update(UUID id, UserUpdateRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
@@ -56,9 +59,20 @@ public class UserService {
         }
 
         user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        if (StringUtils.hasText(request.getPassword())) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
         user.setRole(request.getRole());
 
+        User saved = userRepository.save(user);
+        return toResponse(saved);
+    }
+
+    @Transactional
+    public UserResponse updateRole(UUID id, Role role) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
+        user.setRole(role);
         User saved = userRepository.save(user);
         return toResponse(saved);
     }

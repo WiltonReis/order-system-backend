@@ -18,11 +18,13 @@ import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -35,15 +37,30 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
 
+    private static final Random RANDOM = new Random();
+
+    private String generateUniqueOrderCode() {
+        String code;
+        do {
+            code = String.format("%05d", RANDOM.nextInt(100000));
+        } while (orderRepository.existsByOrderCode(code));
+        return code;
+    }
+
     @Transactional
     public OrderResponse create(OrderRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", username));
 
         Order order = new Order();
         order.setStatus(OrderStatus.OPEN);
         order.setCreatedAt(LocalDateTime.now());
         order.setUser(user);
+        order.setOrderCode(generateUniqueOrderCode());
+        if (request != null && request.getCustomerName() != null && !request.getCustomerName().isBlank()) {
+            order.setCustomerName(request.getCustomerName().trim());
+        }
 
         Order saved = orderRepository.save(order);
         return toOrderResponse(saved);
@@ -52,6 +69,20 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<OrderListResponse> findAll() {
         return orderRepository.findAllWithUsers().stream()
+                .map(this::toOrderListResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderListResponse> findActive() {
+        return orderRepository.findAllWithUsersByStatus(OrderStatus.OPEN).stream()
+                .map(this::toOrderListResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderListResponse> findHistory() {
+        return orderRepository.findAllWithUsersByStatusIn(List.of(OrderStatus.COMPLETED, OrderStatus.CANCELED)).stream()
                 .map(this::toOrderListResponse)
                 .collect(Collectors.toList());
     }
@@ -78,6 +109,48 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         return new OrderUpdateResponse(saved.getId(), saved.getTotal(), saved.getDiscount());
+    }
+
+    @Transactional
+    public OrderResponse completeOrder(UUID id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", id));
+
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            throw new BusinessException("Order is already completed");
+        }
+        if (order.getStatus() == OrderStatus.CANCELED) {
+            throw new BusinessException("Cannot complete a canceled order");
+        }
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        order.setStatus(OrderStatus.COMPLETED);
+        order.setCompletedAt(LocalDateTime.now());
+        order.setCompletedByUsername(username);
+
+        Order saved = orderRepository.save(order);
+        return toOrderResponse(saved);
+    }
+
+    @Transactional
+    public OrderResponse cancelOrder(UUID id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", id));
+
+        if (order.getStatus() == OrderStatus.CANCELED) {
+            throw new BusinessException("Order is already canceled");
+        }
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            throw new BusinessException("Cannot cancel a completed order");
+        }
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        order.setStatus(OrderStatus.CANCELED);
+        order.setCanceledAt(LocalDateTime.now());
+        order.setCanceledByUsername(username);
+
+        Order saved = orderRepository.save(order);
+        return toOrderResponse(saved);
     }
 
     @Transactional
@@ -163,10 +236,16 @@ public class OrderService {
     private OrderResponse toOrderResponse(Order order) {
         return new OrderResponse(
                 order.getId(),
+                order.getOrderCode(),
                 order.getStatus(),
                 order.getCreatedAt(),
                 order.getTotal(),
-                order.getDiscount()
+                order.getDiscount(),
+                order.getCustomerName(),
+                order.getCompletedAt(),
+                order.getCanceledAt(),
+                order.getCompletedByUsername(),
+                order.getCanceledByUsername()
         );
     }
 
@@ -177,9 +256,15 @@ public class OrderService {
         );
         return new OrderListResponse(
                 order.getId(),
+                order.getOrderCode(),
                 order.getStatus(),
                 order.getTotal(),
                 order.getCreatedAt(),
+                order.getCustomerName(),
+                order.getCompletedAt(),
+                order.getCanceledAt(),
+                order.getCompletedByUsername(),
+                order.getCanceledByUsername(),
                 userSummary
         );
     }
@@ -202,10 +287,16 @@ public class OrderService {
 
         return new OrderDetailResponse(
                 order.getId(),
+                order.getOrderCode(),
                 order.getStatus(),
                 order.getCreatedAt(),
                 order.getTotal(),
                 order.getDiscount(),
+                order.getCustomerName(),
+                order.getCompletedAt(),
+                order.getCanceledAt(),
+                order.getCompletedByUsername(),
+                order.getCanceledByUsername(),
                 userSummary,
                 items
         );

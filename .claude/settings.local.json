@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw compile *)",
+      "PowerShell(& \"C:\\\\Program Files\\\\Java\\\\zulu21.42.19-ca-jdk21.0.7-win_x64\\\\bin\\\\java.exe\" -version 2>&1)"
+    ]
+  }
+}

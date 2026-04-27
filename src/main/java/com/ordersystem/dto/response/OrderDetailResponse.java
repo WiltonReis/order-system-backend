@@ -14,10 +14,16 @@ import java.util.UUID;
 public class OrderDetailResponse {
 
     private UUID id;
+    private String orderCode;
     private OrderStatus status;
     private LocalDateTime createdAt;
     private BigDecimal total;
     private BigDecimal discount;
+    private String customerName;
+    private LocalDateTime completedAt;
+    private LocalDateTime canceledAt;
+    private String completedByUsername;
+    private String canceledByUsername;
     private UserSummaryResponse user;
     private List<OrderItemResponse> items;
 }

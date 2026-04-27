@@ -1,5 +1,7 @@
 package com.ordersystem.dto.request;
 
+import com.ordersystem.enums.Role;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -7,7 +9,8 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class OrderRequest {
+public class UserRoleRequest {
 
-    private String customerName;
+    @NotNull
+    private Role role;
 }

@@ -22,8 +22,15 @@ public class Product {
     @Column(nullable = false)
     private String name;
 
+    @Column(length = 200)
     private String description;
 
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
+
+    @Column
+    private String imageUrl;
+
+    @Column
+    private String createdByUsername;
 }

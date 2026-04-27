@@ -32,6 +32,6 @@ public class AuthService {
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUsername()));
 
-        return new AuthResponse(token, "Bearer", user.getUsername(), user.getRole().name());
+        return new AuthResponse(user.getId(), token, "Bearer", user.getUsername(), user.getRole().name());
     }
 }
