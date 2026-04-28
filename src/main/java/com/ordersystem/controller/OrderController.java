@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -62,6 +63,7 @@ public class OrderController {
 
     // ADMIN only — enforced via @PreAuthorize inside OrderService
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrderUpdateResponse> applyDiscount(@PathVariable UUID id,
                                                              @Valid @RequestBody OrderUpdateRequest request) {
         return ResponseEntity.ok(orderService.applyDiscount(id, request));
@@ -78,6 +80,7 @@ public class OrderController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> delete(@PathVariable UUID id) {
         return ResponseEntity.ok(orderService.delete(id));
     }

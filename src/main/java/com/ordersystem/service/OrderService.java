@@ -112,7 +112,6 @@ public class OrderService {
     }
 
     @Transactional
-    @PreAuthorize("hasRole('ADMIN')")
     public OrderUpdateResponse applyDiscount(UUID id, OrderUpdateRequest request) {
         Order order = orderRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", id));
@@ -171,7 +170,6 @@ public class OrderService {
     }
 
     @Transactional
-    @PreAuthorize("hasRole('ADMIN')")
     public MessageResponse delete(UUID id) {
         if (!orderRepository.existsById(id)) {
             throw new ResourceNotFoundException("Order", id);

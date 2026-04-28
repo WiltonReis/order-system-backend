@@ -66,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (Exception e) {
-                log.debug("Token JWT inválido: {}", e.getMessage());
+                log.warn("Token JWT inválido: {}", e.getMessage());
             }
         }
 

@@ -14,12 +14,26 @@ spring:
     caffeine:
       spec: maximumSize=500,expireAfterWrite=5m
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+
   jackson:
     serialization:
       write-dates-as-timestamps: false
 
 server:
   port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when-authorized
 
 jwt:
   expiration: 1800000

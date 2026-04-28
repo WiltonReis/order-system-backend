@@ -65,6 +65,7 @@ public class Order {
         BigDecimal subtotal = items.stream()
                 .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.discount = discount.min(subtotal);
         this.total = subtotal.subtract(discount).max(BigDecimal.ZERO);
     }
 }

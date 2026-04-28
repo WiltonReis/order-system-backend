@@ -14,6 +14,10 @@ jwt:
   # Fallback é APENAS para desenvolvimento local — nunca usar em produção.
   secret: ${JWT_SECRET:dGhpcy1pcy1hLWRldi1vbmx5LXNlY3JldC1rZXktbWluLTMyLWJ5dGVz}
 
+app:
+  upload:
+    dir: ${UPLOAD_DIR:./uploads}
+
 logging:
   level:
     com.ordersystem: DEBUG

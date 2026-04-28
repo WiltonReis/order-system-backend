@@ -14,6 +14,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -53,6 +54,12 @@ public class ProductController {
     public ResponseEntity<ProductResponse> updatePrice(@PathVariable UUID id,
                                                        @Valid @RequestBody ProductPriceRequest request) {
         return ResponseEntity.ok(productService.updatePrice(id, request.getPrice()));
+    }
+
+    @PostMapping("/{id}/image")
+    public ResponseEntity<ProductResponse> uploadImage(@PathVariable UUID id,
+                                                       @RequestParam("image") MultipartFile file) {
+        return ResponseEntity.ok(productService.uploadImage(id, file));
     }
 
     @DeleteMapping("/{id}")
