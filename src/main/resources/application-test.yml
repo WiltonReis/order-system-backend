@@ -1,19 +1,18 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/order_system
+    url: jdbc:postgresql://localhost:5432/order_system_test
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create-drop
     show-sql: false
 
 jwt:
-  # Fallback é APENAS para desenvolvimento local — nunca usar em produção.
   secret: ${JWT_SECRET:dGhpcy1pcy1hLWRldi1vbmx5LXNlY3JldC1rZXktbWluLTMyLWJ5dGVz}
 
 logging:
   level:
-    com.ordersystem: DEBUG
+    com.ordersystem: WARN

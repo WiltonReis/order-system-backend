@@ -36,7 +36,7 @@ public class Order {
     @Column
     private LocalDateTime canceledAt;
 
-    @Column
+    @Column(length = 150)
     private String customerName;
 
     @Column(nullable = false, precision = 10, scale = 2)

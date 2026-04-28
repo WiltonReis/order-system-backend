@@ -1,14 +1,8 @@
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5433/order_system
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
+  profiles:
+    active: ${SPRING_PROFILE:dev}
 
   jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
     open-in-view: false
     properties:
       hibernate:
@@ -28,12 +22,5 @@ server:
   port: 8080
 
 jwt:
-  # Produção: definir JWT_SECRET como variável de ambiente (min 32 bytes em Base64).
-  # Fallback abaixo é APENAS para desenvolvimento local — nunca usar em produção.
-  secret: ${JWT_SECRET:dGhpcy1pcy1hLWRldi1vbmx5LXNlY3JldC1rZXktbWluLTMyLWJ5dGVz}
-  expiration: 1800000       # 30 minutes in milliseconds
-  refresh-expiration: 2592000000  # 30 days in milliseconds
-
-logging:
-  level:
-    com.ordersystem: INFO
+  expiration: 1800000
+  refresh-expiration: 2592000000
