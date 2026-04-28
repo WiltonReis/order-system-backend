@@ -9,7 +9,10 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtTokenProvider {
@@ -23,6 +26,7 @@ public class JwtTokenProvider {
     public String generateToken(UserDetails userDetails) {
         return Jwts.builder()
                 .subject(userDetails.getUsername())
+                .id(UUID.randomUUID().toString())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey())
@@ -31,6 +35,20 @@ public class JwtTokenProvider {
 
     public String extractUsername(String token) {
         return extractClaims(token).getSubject();
+    }
+
+    public String extractJti(String token) {
+        return extractClaims(token).getId();
+    }
+
+    public LocalDateTime extractIssuedAt(String token) {
+        return extractClaims(token).getIssuedAt().toInstant()
+                .atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+
+    public LocalDateTime extractExpiration(String token) {
+        return extractClaims(token).getExpiration().toInstant()
+                .atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {

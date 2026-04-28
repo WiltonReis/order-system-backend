@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,4 +42,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     // PERF-03: próximo código de pedido via sequence PostgreSQL (atômico, sem loop de unicidade)
     @Query(value = "SELECT nextval('order_code_seq')", nativeQuery = true)
     Long getNextOrderCode();
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :from")
+    long countByCreatedAtFrom(@Param("from") LocalDateTime from);
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.status = :status AND o.createdAt >= :from")
+    long countByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from);
+
+    @Query("SELECT SUM(o.total) FROM Order o WHERE o.status = :status AND o.createdAt >= :from")
+    BigDecimal sumTotalByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from);
 }

@@ -1,5 +1,6 @@
 package com.ordersystem.security;
 
+import com.ordersystem.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Component
@@ -25,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsServiceImpl userDetailsService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -41,6 +44,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
                     if (jwtTokenProvider.isTokenValid(token, userDetails)) {
+                        String jti = jwtTokenProvider.extractJti(token);
+                        if (tokenBlacklistService.isRevoked(jti)) {
+                            chain.doFilter(request, response);
+                            return;
+                        }
+
+                        if (userDetails instanceof UserPrincipal principal
+                                && principal.getTokenRevokedBefore() != null) {
+                            LocalDateTime issuedAt = jwtTokenProvider.extractIssuedAt(token);
+                            if (issuedAt.isBefore(principal.getTokenRevokedBefore())) {
+                                chain.doFilter(request, response);
+                                return;
+                            }
+                        }
+
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -55,11 +73,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    /**
-     * Extrai o token JWT da requisição.
-     * Prioridade 1: Authorization header (compatibilidade com clientes de API).
-     * Prioridade 2: cookie httpOnly (uso pelo frontend web).
-     */
     private String extractToken(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
