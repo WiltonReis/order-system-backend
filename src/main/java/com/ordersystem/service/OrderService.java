@@ -171,6 +171,7 @@ public class OrderService {
     }
 
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public MessageResponse delete(UUID id) {
         if (!orderRepository.existsById(id)) {
             throw new ResourceNotFoundException("Order", id);

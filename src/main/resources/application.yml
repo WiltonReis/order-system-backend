@@ -15,6 +15,11 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=5m
+
   jackson:
     serialization:
       write-dates-as-timestamps: false
@@ -31,4 +36,4 @@ jwt:
 
 logging:
   level:
-    com.ordersystem: DEBUG
+    com.ordersystem: INFO
