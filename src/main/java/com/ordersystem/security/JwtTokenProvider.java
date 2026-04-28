@@ -24,11 +24,15 @@ public class JwtTokenProvider {
     private long expiration;
 
     public String generateToken(UserDetails userDetails) {
+        return generateToken(userDetails, expiration);
+    }
+
+    public String generateToken(UserDetails userDetails, long expirationMs) {
         return Jwts.builder()
                 .subject(userDetails.getUsername())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getSigningKey())
                 .compact();
     }

@@ -26,7 +26,8 @@ jwt:
   # Produção: definir JWT_SECRET como variável de ambiente (min 32 bytes em Base64).
   # Fallback abaixo é APENAS para desenvolvimento local — nunca usar em produção.
   secret: ${JWT_SECRET:dGhpcy1pcy1hLWRldi1vbmx5LXNlY3JldC1rZXktbWluLTMyLWJ5dGVz}
-  expiration: 86400000  # 24 hours in milliseconds
+  expiration: 1800000       # 30 minutes in milliseconds
+  refresh-expiration: 2592000000  # 30 days in milliseconds
 
 logging:
   level:

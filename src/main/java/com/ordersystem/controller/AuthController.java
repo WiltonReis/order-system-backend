@@ -4,8 +4,10 @@ import com.ordersystem.dto.request.LoginRequest;
 import com.ordersystem.dto.response.AuthResponse;
 import com.ordersystem.exception.TooManyRequestsException;
 import com.ordersystem.security.JwtTokenProvider;
+import com.ordersystem.security.UserDetailsServiceImpl;
 import com.ordersystem.service.AuthService;
 import com.ordersystem.service.LoginRateLimiterService;
+import com.ordersystem.service.RefreshTokenService;
 import com.ordersystem.service.TokenBlacklistService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +20,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,13 +34,21 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class AuthController {
 
+    private static final String ACCESS_COOKIE = "oms.token";
+    private static final String REFRESH_COOKIE = "oms.refresh";
+
     private final AuthService authService;
     private final LoginRateLimiterService loginRateLimiterService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserDetailsServiceImpl userDetailsService;
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    @Value("${jwt.refresh-expiration}")
+    private long refreshExpiration;
 
     @Value("${COOKIE_SECURE:false}")
     private boolean cookieSecure;
@@ -53,18 +64,12 @@ public class AuthController {
         }
 
         try {
-            AuthResponse authResponse = authService.login(request);
+            AuthService.LoginResult result = authService.login(request);
 
-            ResponseCookie cookie = ResponseCookie.from("oms.token", authResponse.getToken())
-                    .httpOnly(true)
-                    .secure(cookieSecure)
-                    .sameSite("Lax")
-                    .path("/")
-                    .maxAge(Duration.ofMillis(jwtExpiration))
-                    .build();
+            setAccessCookie(response, result.authResponse().getToken());
+            setRefreshCookie(response, result.refreshToken());
 
-            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-            return ResponseEntity.ok(authResponse);
+            return ResponseEntity.ok(result.authResponse());
         } catch (BadCredentialsException e) {
             log.warn("Tentativa de login falhou para o usuário '{}' a partir do IP: {}",
                     request.getUsername(), clientIp);
@@ -72,28 +77,83 @@ public class AuthController {
         }
     }
 
+    @PostMapping("/refresh")
+    public ResponseEntity<Void> refresh(HttpServletRequest request, HttpServletResponse response) {
+        String refreshTokenValue = extractCookieValue(request, REFRESH_COOKIE);
+
+        if (refreshTokenValue == null) {
+            throw new BadCredentialsException("Refresh token ausente");
+        }
+
+        String username = refreshTokenService.validate(refreshTokenValue);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        String newAccessToken = jwtTokenProvider.generateToken(userDetails);
+
+        setAccessCookie(response, newAccessToken);
+        return ResponseEntity.ok().build();
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
-        String token = extractTokenFromRequest(request);
-        if (token != null) {
+        String accessToken = extractCookieValue(request, ACCESS_COOKIE);
+        if (accessToken == null) {
+            accessToken = extractBearerToken(request);
+        }
+
+        if (accessToken != null) {
             try {
-                String jti = jwtTokenProvider.extractJti(token);
-                tokenBlacklistService.revoke(jti, jwtTokenProvider.extractExpiration(token));
+                String jti = jwtTokenProvider.extractJti(accessToken);
+                tokenBlacklistService.revoke(jti, jwtTokenProvider.extractExpiration(accessToken));
             } catch (Exception e) {
-                log.debug("Falha ao revogar token no logout: {}", e.getMessage());
+                log.debug("Falha ao revogar access token no logout: {}", e.getMessage());
             }
         }
 
-        ResponseCookie cookie = ResponseCookie.from("oms.token", "")
+        String refreshToken = extractCookieValue(request, REFRESH_COOKIE);
+        if (refreshToken != null) {
+            try {
+                refreshTokenService.delete(refreshToken);
+            } catch (Exception e) {
+                log.debug("Falha ao revogar refresh token no logout: {}", e.getMessage());
+            }
+        }
+
+        clearCookie(response, ACCESS_COOKIE, "/");
+        clearCookie(response, REFRESH_COOKIE, "/auth");
+        return ResponseEntity.ok().build();
+    }
+
+    private void setAccessCookie(HttpServletResponse response, String token) {
+        ResponseCookie cookie = ResponseCookie.from(ACCESS_COOKIE, token)
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .sameSite("Lax")
                 .path("/")
+                .maxAge(Duration.ofMillis(jwtExpiration))
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void setRefreshCookie(HttpServletResponse response, String token) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE, token)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Lax")
+                .path("/auth")
+                .maxAge(Duration.ofMillis(refreshExpiration))
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    private void clearCookie(HttpServletResponse response, String name, String path) {
+        ResponseCookie cookie = ResponseCookie.from(name, "")
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite("Lax")
+                .path(path)
                 .maxAge(0)
                 .build();
-
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        return ResponseEntity.ok().build();
     }
 
     private String getClientIp(HttpServletRequest request) {
@@ -104,17 +164,21 @@ public class AuthController {
         return request.getRemoteAddr();
     }
 
-    private String extractTokenFromRequest(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7);
-        }
+    private String extractCookieValue(HttpServletRequest request, String name) {
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if ("oms.token".equals(cookie.getName())) {
+                if (name.equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
+        }
+        return null;
+    }
+
+    private String extractBearerToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
         }
         return null;
     }
