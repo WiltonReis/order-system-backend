@@ -12,19 +12,26 @@ import java.util.UUID;
 public class UserPrincipal implements UserDetails {
 
     private final UUID id;
-    private final String username;
+    private final String email;
+    private final UUID customerSaasId;
     private final String password;
     private final LocalDateTime tokenRevokedBefore;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public UserPrincipal(UUID id, String username, String password,
+    public UserPrincipal(UUID id, String email, UUID customerSaasId, String password,
                          LocalDateTime tokenRevokedBefore,
                          Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
-        this.username = username;
+        this.email = email;
+        this.customerSaasId = customerSaasId;
         this.password = password;
         this.tokenRevokedBefore = tokenRevokedBefore;
         this.authorities = authorities;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
     }
 
     @Override

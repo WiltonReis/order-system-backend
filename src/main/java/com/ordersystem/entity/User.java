@@ -16,7 +16,10 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_users_customer_saas_id", columnList = "customer_saas_id")
+        @Index(name = "idx_users_customer_saas_id", columnList = "customer_saas_id"),
+        @Index(name = "idx_users_email", columnList = "email", unique = true)
+}, uniqueConstraints = {
+        @UniqueConstraint(name = "uk_users_tenant_name", columnNames = {"customer_saas_id", "name"})
 })
 @FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "tenantId", type = UUID.class))
 @Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
@@ -29,8 +32,11 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
-    private String username;
+    @Column(nullable = false, unique = true, length = 200)
+    private String email;
+
+    @Column(nullable = false, length = 150)
+    private String name;
 
     @Column(nullable = false)
     private String password;
