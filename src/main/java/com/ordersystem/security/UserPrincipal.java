@@ -13,16 +13,18 @@ public class UserPrincipal implements UserDetails {
 
     private final UUID id;
     private final String email;
+    private final String name;
     private final UUID customerSaasId;
     private final String password;
     private final LocalDateTime tokenRevokedBefore;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public UserPrincipal(UUID id, String email, UUID customerSaasId, String password,
+    public UserPrincipal(UUID id, String email, String name, UUID customerSaasId, String password,
                          LocalDateTime tokenRevokedBefore,
                          Collection<? extends GrantedAuthority> authorities) {
         this.id = id;
         this.email = email;
+        this.name = name;
         this.customerSaasId = customerSaasId;
         this.password = password;
         this.tokenRevokedBefore = tokenRevokedBefore;

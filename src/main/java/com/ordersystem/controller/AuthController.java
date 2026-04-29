@@ -1,8 +1,11 @@
 package com.ordersystem.controller;
 
 import com.ordersystem.dto.request.LoginRequest;
+import com.ordersystem.dto.request.RegisterRequest;
 import com.ordersystem.dto.response.AuthResponse;
+import com.ordersystem.dto.response.RegisterResponse;
 import com.ordersystem.exception.TooManyRequestsException;
+import org.springframework.http.HttpStatus;
 import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserDetailsServiceImpl;
 import com.ordersystem.service.AuthService;
@@ -71,10 +74,16 @@ public class AuthController {
 
             return ResponseEntity.ok(result.authResponse());
         } catch (BadCredentialsException e) {
-            log.warn("Tentativa de login falhou para o usuário '{}' a partir do IP: {}",
-                    request.getUsername(), clientIp);
+            log.warn("Tentativa de login falhou para o e-mail '{}' a partir do IP: {}",
+                    request.getEmail(), clientIp);
             throw e;
         }
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+        RegisterResponse body = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
     @PostMapping("/refresh")

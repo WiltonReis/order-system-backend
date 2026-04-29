@@ -17,6 +17,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -35,6 +36,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain chain) throws ServletException, IOException {
 
         String token = extractToken(request);
+        boolean tenantSet = false;
 
         if (token != null) {
             try {
@@ -59,6 +61,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             }
                         }
 
+                        UUID claimTenantId = jwtTokenProvider.extractTenantId(token);
+                        if (!(userDetails instanceof UserPrincipal principal)
+                                || principal.getCustomerSaasId() == null
+                                || claimTenantId == null
+                                || !principal.getCustomerSaasId().equals(claimTenantId)) {
+                            log.warn("Token JWT recusado: tenantId ausente ou divergente do usuário");
+                            chain.doFilter(request, response);
+                            return;
+                        }
+
+                        TenantContext.set(claimTenantId);
+                        tenantSet = true;
+
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -70,7 +85,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        chain.doFilter(request, response);
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            if (tenantSet) {
+                TenantContext.clear();
+            }
+        }
     }
 
     private String extractToken(HttpServletRequest request) {

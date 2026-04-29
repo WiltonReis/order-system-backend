@@ -7,13 +7,10 @@ import java.util.UUID;
 
 @Getter
 @AllArgsConstructor
-public class AuthResponse {
+public class RegisterResponse {
 
     private UUID id;
-    private String token;
-    private String type;
     private String email;
     private String name;
-    private String role;
     private UUID customerSaasId;
 }

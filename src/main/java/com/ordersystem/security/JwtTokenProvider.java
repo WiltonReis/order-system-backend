@@ -28,13 +28,17 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(UserDetails userDetails, long expirationMs) {
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(userDetails.getUsername())
                 .id(UUID.randomUUID().toString())
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + expirationMs))
-                .signWith(getSigningKey())
-                .compact();
+                .expiration(new Date(System.currentTimeMillis() + expirationMs));
+
+        if (userDetails instanceof UserPrincipal principal && principal.getCustomerSaasId() != null) {
+            builder.claim("tenantId", principal.getCustomerSaasId().toString());
+        }
+
+        return builder.signWith(getSigningKey()).compact();
     }
 
     public String extractUsername(String token) {
@@ -43,6 +47,11 @@ public class JwtTokenProvider {
 
     public String extractJti(String token) {
         return extractClaims(token).getId();
+    }
+
+    public UUID extractTenantId(String token) {
+        Object claim = extractClaims(token).get("tenantId");
+        return claim == null ? null : UUID.fromString(claim.toString());
     }
 
     public LocalDateTime extractIssuedAt(String token) {
