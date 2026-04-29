@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Filter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,8 +17,11 @@ import java.util.UUID;
 @Table(name = "orders", indexes = {
         @Index(name = "idx_orders_status", columnList = "status"),
         @Index(name = "idx_orders_user_id", columnList = "user_id"),
-        @Index(name = "idx_orders_created_at", columnList = "createdAt")
+        @Index(name = "idx_orders_created_at", columnList = "createdAt"),
+        @Index(name = "idx_orders_customer_saas_id", columnList = "customer_saas_id"),
+        @Index(name = "idx_orders_customer_saas_id_status", columnList = "customer_saas_id, status")
 })
+@Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -61,6 +65,10 @@ public class Order {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "customer_saas_id", nullable = false)
+    private CustomerSaas customerSaas;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> items = new ArrayList<>();
