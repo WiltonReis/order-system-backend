@@ -1,9 +1,12 @@
 package com.ordersystem.controller;
 
+import com.ordersystem.dto.request.OrderFilterParams;
+import com.ordersystem.dto.request.OrderFullRequest;
 import com.ordersystem.dto.request.OrderItemRequest;
 import com.ordersystem.dto.request.OrderItemUpdateRequest;
 import com.ordersystem.dto.request.OrderRequest;
 import com.ordersystem.dto.request.OrderUpdateRequest;
+import com.ordersystem.enums.OrderStatus;
 import com.ordersystem.dto.response.*;
 import com.ordersystem.service.OrderService;
 import jakarta.validation.Valid;
@@ -17,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -31,11 +36,35 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.create(request));
     }
 
-    // PERF-01 + PERF-02: retorna pedidos completos (com itens) paginados, sem N+1
+    // ESC-03: criação atômica — pedido completo (itens + desconto) em uma única transação
+    @PostMapping("/full")
+    public ResponseEntity<OrderDetailResponse> createFull(@Valid @RequestBody OrderFullRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createFull(request));
+    }
+
+    // PERF-01 + PERF-02 + FUT-02: retorna pedidos completos paginados com filtros opcionais
     @GetMapping("/details")
     public ResponseEntity<Page<OrderDetailResponse>> findAllDetails(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ResponseEntity.ok(orderService.findAllDetails(pageable));
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) List<OrderStatus> statuses,
+            @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) String customerName,
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false, defaultValue = "newest") String sort) {
+
+        OrderFilterParams params = new OrderFilterParams();
+        params.setStatuses(statuses);
+        params.setUserId(userId);
+        params.setCustomerName(customerName);
+        params.setOrderCode(orderCode);
+        params.setSort(sort);
+        if (startDate != null) params.setStartDate(LocalDate.parse(startDate));
+        if (endDate != null) params.setEndDate(LocalDate.parse(endDate));
+
+        return ResponseEntity.ok(orderService.findAllDetailsFiltered(params, page, size));
     }
 
     @GetMapping

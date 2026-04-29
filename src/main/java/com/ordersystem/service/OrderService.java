@@ -1,9 +1,12 @@
 package com.ordersystem.service;
 
+import com.ordersystem.dto.request.OrderFilterParams;
+import com.ordersystem.dto.request.OrderFullRequest;
 import com.ordersystem.dto.request.OrderItemRequest;
 import com.ordersystem.dto.request.OrderItemUpdateRequest;
 import com.ordersystem.dto.request.OrderRequest;
 import com.ordersystem.dto.request.OrderUpdateRequest;
+import com.ordersystem.specification.OrderSpecification;
 import com.ordersystem.dto.response.*;
 import com.ordersystem.entity.Order;
 import com.ordersystem.entity.OrderItem;
@@ -20,11 +23,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +73,48 @@ public class OrderService {
         return toOrderResponse(saved);
     }
 
+    // ESC-03: cria pedido completo (itens + desconto) em transação única — sem risco de estado parcial
+    @Transactional
+    public OrderDetailResponse createFull(OrderFullRequest request) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User", username));
+
+        Order order = new Order();
+        order.setStatus(OrderStatus.OPEN);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setUser(user);
+        order.setOrderCode(generateOrderCode());
+        if (request.getCustomerName() != null && !request.getCustomerName().isBlank()) {
+            order.setCustomerName(request.getCustomerName().trim());
+        }
+
+        for (OrderItemRequest itemReq : request.getItems()) {
+            Product product = productRepository.findById(itemReq.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", itemReq.getProductId()));
+            OrderItem item = new OrderItem();
+            item.setOrder(order);
+            item.setProduct(product);
+            item.setQuantity(itemReq.getQuantity());
+            item.setPrice(product.getPrice());
+            order.getItems().add(item);
+        }
+
+        order.recalculateTotal();
+
+        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication()
+                .getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (isAdmin && request.getDiscount() != null && request.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
+            order.setDiscount(request.getDiscount());
+            order.recalculateTotal();
+        }
+
+        Order saved = orderRepository.save(order);
+        return toOrderDetailResponse(saved);
+    }
+
     // PERF-01: busca todos os pedidos com itens em duas queries, sem N+1
     @Transactional(readOnly = true)
     public Page<OrderDetailResponse> findAllDetails(Pageable pageable) {
@@ -83,6 +133,42 @@ public class OrderService {
                 .map(this::toOrderDetailResponse)
                 .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, idsPage.getTotalElements());
+    }
+
+    // FUT-02: busca filtrada com suporte a status, userId, datas, customerName, orderCode e sort
+    @Transactional(readOnly = true)
+    public Page<OrderDetailResponse> findAllDetailsFiltered(OrderFilterParams params, int page, int size) {
+        Sort sort = buildSort(params.getSort());
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Specification<Order> spec = OrderSpecification.from(params);
+
+        Page<Order> ordersPage = orderRepository.findAll(spec, pageable);
+        List<UUID> ids = ordersPage.getContent().stream().map(Order::getId).toList();
+        if (ids.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<Order> detailedOrders = orderRepository.findAllWithDetailsByIds(ids);
+        Map<UUID, Order> detailMap = detailedOrders.stream()
+                .collect(Collectors.toMap(Order::getId, o -> o));
+        List<OrderDetailResponse> content = ids.stream()
+                .map(detailMap::get)
+                .filter(Objects::nonNull)
+                .map(this::toOrderDetailResponse)
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(content, pageable, ordersPage.getTotalElements());
+    }
+
+    private Sort buildSort(String sort) {
+        if (sort == null) return Sort.by(Sort.Direction.DESC, "createdAt");
+        return switch (sort) {
+            case "oldest"        -> Sort.by(Sort.Direction.ASC,  "createdAt");
+            case "most_expensive"-> Sort.by(Sort.Direction.DESC, "total");
+            case "cheapest"      -> Sort.by(Sort.Direction.ASC,  "total");
+            case "most_items", "least_items" -> Sort.unsorted();
+            default              -> Sort.by(Sort.Direction.DESC, "createdAt");
+        };
     }
 
     @Transactional(readOnly = true)

@@ -5,6 +5,7 @@ import com.ordersystem.enums.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface OrderRepository extends JpaRepository<Order, UUID> {
+public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order> {
 
     // PERF-01: busca paginada de IDs (leve) + busca de detalhes por IDs (evita N+1 e HHH90003004)
     @Query(value = "SELECT o.id FROM Order o", countQuery = "SELECT COUNT(o) FROM Order o")
