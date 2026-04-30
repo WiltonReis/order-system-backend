@@ -44,12 +44,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query(value = "SELECT COALESCE(MAX(CAST(order_code AS BIGINT)), 0) + 1 FROM orders WHERE customer_saas_id = :tenantId", nativeQuery = true)
     Long getNextOrderCodeForTenant(@Param("tenantId") UUID tenantId);
 
-    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :from")
-    long countByCreatedAtFrom(@Param("from") LocalDateTime from);
+    // MT-23: filtragem explícita por tenant em queries de agregação (não depender só do @Filter)
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :from AND o.customerSaas.id = :tenantId")
+    long countByCreatedAtFrom(@Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
 
-    @Query("SELECT COUNT(o) FROM Order o WHERE o.status = :status AND o.createdAt >= :from")
-    long countByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from);
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.status = :status AND o.createdAt >= :from AND o.customerSaas.id = :tenantId")
+    long countByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
 
-    @Query("SELECT SUM(o.total) FROM Order o WHERE o.status = :status AND o.createdAt >= :from")
-    BigDecimal sumTotalByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from);
+    @Query("SELECT SUM(o.total) FROM Order o WHERE o.status = :status AND o.createdAt >= :from AND o.customerSaas.id = :tenantId")
+    BigDecimal sumTotalByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
 }

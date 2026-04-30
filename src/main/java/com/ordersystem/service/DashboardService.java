@@ -15,6 +15,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,12 +27,13 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(String period) {
         LocalDateTime from = resolveFrom(period);
+        UUID tenantId = TenantContext.getOrThrow();
 
-        long totalOrders = orderRepository.countByCreatedAtFrom(from);
-        long canceledOrders = orderRepository.countByStatusFrom(OrderStatus.CANCELED, from);
-        long completedOrders = orderRepository.countByStatusFrom(OrderStatus.COMPLETED, from);
+        long totalOrders = orderRepository.countByCreatedAtFrom(from, tenantId);
+        long canceledOrders = orderRepository.countByStatusFrom(OrderStatus.CANCELED, from, tenantId);
+        long completedOrders = orderRepository.countByStatusFrom(OrderStatus.COMPLETED, from, tenantId);
 
-        BigDecimal revenue = orderRepository.sumTotalByStatusFrom(OrderStatus.COMPLETED, from);
+        BigDecimal revenue = orderRepository.sumTotalByStatusFrom(OrderStatus.COMPLETED, from, tenantId);
         if (revenue == null) revenue = BigDecimal.ZERO;
 
         double cancelRate = totalOrders > 0
@@ -45,7 +47,7 @@ public class DashboardService {
                 ? revenue.divide(BigDecimal.valueOf(completedOrders), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        List<TopProductResponse> topProducts = orderItemRepository.findTopProductsByQuantity(from, TenantContext.getOrThrow())
+        List<TopProductResponse> topProducts = orderItemRepository.findTopProductsByQuantity(from, tenantId)
                 .stream()
                 .map(p -> new TopProductResponse(p.getProductName(), p.getTotalQuantity()))
                 .toList();

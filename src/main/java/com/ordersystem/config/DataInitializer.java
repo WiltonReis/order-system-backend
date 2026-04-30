@@ -1,13 +1,14 @@
 package com.ordersystem.config;
 
+import com.ordersystem.entity.CustomerSaas;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -19,22 +20,18 @@ import java.util.UUID;
 public class DataInitializer implements CommandLineRunner {
 
     private final UserRepository userRepository;
+    private final CustomerSaasRepository customerSaasRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JdbcTemplate jdbcTemplate;
 
     @Value("${ADMIN_INITIAL_PASSWORD:}")
     private String adminInitialPassword;
 
+    private static final String DEMO_EMAIL = "admin@demo.local";
+    private static final String DEMO_CPFCNPJ = "00000000000000";
+
     @Override
     public void run(String... args) {
-        // Cria a sequence de orderCode antes de qualquer pedido ser persistido
-        jdbcTemplate.execute(
-                "CREATE SEQUENCE IF NOT EXISTS order_code_seq " +
-                "START 1 MINVALUE 1 MAXVALUE 99999 INCREMENT 1 NO CYCLE"
-        );
-        log.info("Sequence order_code_seq verificada/criada");
-
-        if (userRepository.findByUsername("admin").isPresent()) {
+        if (userRepository.findByEmail(DEMO_EMAIL).isPresent()) {
             return;
         }
 
@@ -42,7 +39,6 @@ public class DataInitializer implements CommandLineRunner {
         if (!adminInitialPassword.isBlank()) {
             password = adminInitialPassword;
         } else {
-            // Gera senha aleatória e exibe no console — deve ser trocada imediatamente
             password = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
             log.warn("=================================================================");
             log.warn("AVISO DE SEGURANÇA: ADMIN_INITIAL_PASSWORD não foi definida.");
@@ -51,11 +47,22 @@ public class DataInitializer implements CommandLineRunner {
             log.warn("=================================================================");
         }
 
+        CustomerSaas tenant = customerSaasRepository.findByCpfCnpj(DEMO_CPFCNPJ).orElseGet(() -> {
+            CustomerSaas demo = new CustomerSaas();
+            demo.setCompanyName("Demo");
+            demo.setCpfCnpj(DEMO_CPFCNPJ);
+            demo.setContactEmail(DEMO_EMAIL);
+            return customerSaasRepository.save(demo);
+        });
+
         User admin = new User();
-        admin.setUsername("admin");
+        admin.setEmail(DEMO_EMAIL);
+        admin.setName("Admin");
         admin.setPassword(passwordEncoder.encode(password));
-        admin.setRole(Role.ADMIN);
+        admin.setRole(Role.ADMIN_MASTER);
+        admin.setCustomerSaas(tenant);
         userRepository.save(admin);
-        log.info("Usuário admin criado (username: admin)");
+
+        log.info("Tenant Demo e usuário ADMIN_MASTER criados (email: {})", DEMO_EMAIL);
     }
 }
