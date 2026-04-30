@@ -4,11 +4,16 @@ import com.ordersystem.dto.request.UserRequest;
 import com.ordersystem.dto.request.UserUpdateRequest;
 import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.UserResponse;
+import com.ordersystem.entity.CustomerSaas;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
+import com.ordersystem.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -32,8 +37,13 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
+    private static final UUID TENANT_ID = UUID.randomUUID();
+
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private CustomerSaasRepository customerSaasRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -41,10 +51,21 @@ class UserServiceTest {
     @InjectMocks
     private UserService userService;
 
-    private User buildUser(UUID id, String username, Role role) {
+    @BeforeEach
+    void setUp() {
+        TenantContext.set(TENANT_ID);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
+    private User buildUser(UUID id, String email, String name, Role role) {
         User user = new User();
         user.setId(id);
-        user.setUsername(username);
+        user.setEmail(email);
+        user.setName(name);
         user.setPassword("encoded");
         user.setRole(role);
         return user;
@@ -54,59 +75,58 @@ class UserServiceTest {
 
     @Test
     void shouldCreateUserSuccessfully() {
-        // Given
         UUID id = UUID.randomUUID();
         UserRequest request = new UserRequest();
-        request.setUsername("alice");
+        request.setEmail("alice@test.local");
+        request.setName("Alice");
         request.setPassword("secret");
         request.setRole(Role.USER);
 
-        when(userRepository.existsByUsername("alice")).thenReturn(false);
+        when(userRepository.existsByEmailGlobal("alice@test.local")).thenReturn(false);
+        when(customerSaasRepository.getReferenceById(TENANT_ID)).thenReturn(new CustomerSaas());
         when(passwordEncoder.encode("secret")).thenReturn("encoded-secret");
-        when(userRepository.save(any(User.class))).thenReturn(buildUser(id, "alice", Role.USER));
+        when(userRepository.save(any(User.class))).thenReturn(buildUser(id, "alice@test.local", "Alice", Role.USER));
 
-        // When
         UserResponse response = userService.create(request);
 
-        // Then
         assertThat(response.getId()).isEqualTo(id);
-        assertThat(response.getUsername()).isEqualTo("alice");
+        assertThat(response.getEmail()).isEqualTo("alice@test.local");
+        assertThat(response.getName()).isEqualTo("Alice");
         assertThat(response.getRole()).isEqualTo(Role.USER);
         verify(passwordEncoder).encode("secret");
     }
 
     @Test
-    void shouldThrowWhenCreatingUserWithAlreadyTakenUsername() {
-        // Given
+    void shouldThrowWhenCreatingUserWithAlreadyTakenEmail() {
         UserRequest request = new UserRequest();
-        request.setUsername("alice");
+        request.setEmail("alice@test.local");
+        request.setName("Alice");
         request.setPassword("secret");
         request.setRole(Role.USER);
-        when(userRepository.existsByUsername("alice")).thenReturn(true);
+        when(userRepository.existsByEmailGlobal("alice@test.local")).thenReturn(true);
 
-        // When / Then
         assertThatThrownBy(() -> userService.create(request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("alice");
+                .hasMessageContaining("alice@test.local");
         verify(userRepository, never()).save(any());
         verifyNoInteractions(passwordEncoder);
     }
 
     @Test
     void shouldEncodePasswordOnCreate() {
-        // Given
         UserRequest request = new UserRequest();
-        request.setUsername("bob");
+        request.setEmail("bob@test.local");
+        request.setName("Bob");
         request.setPassword("plaintext");
         request.setRole(Role.ADMIN);
-        when(userRepository.existsByUsername("bob")).thenReturn(false);
+
+        when(userRepository.existsByEmailGlobal("bob@test.local")).thenReturn(false);
+        when(customerSaasRepository.getReferenceById(TENANT_ID)).thenReturn(new CustomerSaas());
         when(passwordEncoder.encode("plaintext")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         userService.create(request);
 
-        // Then
         verify(userRepository).save(argThat(u -> "hashed".equals(u.getPassword())));
     }
 
@@ -114,30 +134,25 @@ class UserServiceTest {
 
     @Test
     void shouldReturnPagedUsers() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         UUID id = UUID.randomUUID();
-        Page<User> page = new PageImpl<>(List.of(buildUser(id, "bob", Role.USER)), pageable, 1);
+        Page<User> page = new PageImpl<>(List.of(buildUser(id, "bob@test.local", "Bob", Role.USER)), pageable, 1);
         when(userRepository.findAll(pageable)).thenReturn(page);
 
-        // When
         Page<UserResponse> result = userService.findAll(pageable);
 
-        // Then
         assertThat(result.getTotalElements()).isEqualTo(1);
-        assertThat(result.getContent().get(0).getUsername()).isEqualTo("bob");
+        assertThat(result.getContent().get(0).getEmail()).isEqualTo("bob@test.local");
+        assertThat(result.getContent().get(0).getName()).isEqualTo("Bob");
     }
 
     @Test
     void shouldReturnEmptyPageWhenNoUsers() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         when(userRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        // When
         Page<UserResponse> result = userService.findAll(pageable);
 
-        // Then
         assertThat(result.getContent()).isEmpty();
         assertThat(result.getTotalElements()).isZero();
     }
@@ -146,52 +161,48 @@ class UserServiceTest {
 
     @Test
     void shouldUpdateUserWithoutChangingPasswordWhenPasswordIsBlank() {
-        // Given
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "alice", Role.USER);
+        User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
         UserUpdateRequest request = new UserUpdateRequest();
-        request.setUsername("alice");
+        request.setEmail("alice@test.local");
+        request.setName("Alice");
         request.setPassword("");
         request.setRole(Role.ADMIN);
 
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
         when(userRepository.save(existing)).thenReturn(existing);
 
-        // When
         UserResponse response = userService.update(id, request);
 
-        // Then
         assertThat(response.getRole()).isEqualTo(Role.ADMIN);
         verify(passwordEncoder, never()).encode(any());
     }
 
     @Test
     void shouldUpdateUserWithoutChangingPasswordWhenPasswordIsNull() {
-        // Given
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "alice", Role.USER);
+        User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
         UserUpdateRequest request = new UserUpdateRequest();
-        request.setUsername("alice");
+        request.setEmail("alice@test.local");
+        request.setName("Alice");
         request.setPassword(null);
         request.setRole(Role.ADMIN);
 
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
         when(userRepository.save(existing)).thenReturn(existing);
 
-        // When
         userService.update(id, request);
 
-        // Then
         verify(passwordEncoder, never()).encode(any());
     }
 
     @Test
     void shouldEncodeAndUpdatePasswordWhenNewPasswordProvided() {
-        // Given
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "alice", Role.USER);
+        User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
         UserUpdateRequest request = new UserUpdateRequest();
-        request.setUsername("alice");
+        request.setEmail("alice@test.local");
+        request.setName("Alice");
         request.setPassword("newpass");
         request.setRole(Role.USER);
 
@@ -199,152 +210,169 @@ class UserServiceTest {
         when(passwordEncoder.encode("newpass")).thenReturn("encoded-newpass");
         when(userRepository.save(existing)).thenReturn(existing);
 
-        // When
         userService.update(id, request);
 
-        // Then
         verify(passwordEncoder).encode("newpass");
         assertThat(existing.getPassword()).isEqualTo("encoded-newpass");
     }
 
     @Test
-    void shouldThrowWhenUpdatingToAlreadyTakenUsername() {
-        // Given
+    void shouldThrowWhenUpdatingToAlreadyTakenEmail() {
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "alice", Role.USER);
+        User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
         UserUpdateRequest request = new UserUpdateRequest();
-        request.setUsername("bob");
+        request.setEmail("bob@test.local");
+        request.setName("Alice");
         request.setRole(Role.USER);
 
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
-        when(userRepository.existsByUsername("bob")).thenReturn(true);
+        when(userRepository.existsByEmailGlobal("bob@test.local")).thenReturn(true);
 
-        // When / Then
         assertThatThrownBy(() -> userService.update(id, request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("bob");
+                .hasMessageContaining("bob@test.local");
         verify(userRepository, never()).save(any());
     }
 
     @Test
-    void shouldNotCheckUsernameAvailabilityWhenUsernameUnchanged() {
-        // Given
+    void shouldNotCheckEmailAvailabilityWhenEmailUnchanged() {
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "alice", Role.USER);
+        User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
         UserUpdateRequest request = new UserUpdateRequest();
-        request.setUsername("alice");
+        request.setEmail("alice@test.local");
+        request.setName("Alice Updated");
         request.setRole(Role.ADMIN);
 
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
         when(userRepository.save(existing)).thenReturn(existing);
 
-        // When
         userService.update(id, request);
 
-        // Then
-        verify(userRepository, never()).existsByUsername(any());
+        verify(userRepository, never()).existsByEmailGlobal(any());
     }
 
     @Test
     void shouldThrowWhenUpdatingNonExistentUser() {
-        // Given
         UUID id = UUID.randomUUID();
         UserUpdateRequest request = new UserUpdateRequest();
-        request.setUsername("ghost");
+        request.setEmail("ghost@test.local");
+        request.setName("Ghost");
         request.setRole(Role.USER);
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> userService.update(id, request))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void shouldThrowWhenUpdatingAdminMasterUser() {
+        UUID id = UUID.randomUUID();
+        User existing = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("master@test.local");
+        request.setName("Master");
+        request.setRole(Role.ADMIN);
+
+        when(userRepository.findById(id)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> userService.update(id, request))
+                .isInstanceOf(BusinessException.class);
+        verify(userRepository, never()).save(any());
     }
 
     // --- updateRole ---
 
     @Test
     void shouldUpdateUserRoleToAdmin() {
-        // Given
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "alice", Role.USER);
+        User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
         when(userRepository.save(existing)).thenReturn(existing);
 
-        // When
         UserResponse response = userService.updateRole(id, Role.ADMIN);
 
-        // Then
         assertThat(response.getRole()).isEqualTo(Role.ADMIN);
         assertThat(existing.getRole()).isEqualTo(Role.ADMIN);
     }
 
     @Test
     void shouldUpdateUserRoleToUser() {
-        // Given
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "admin", Role.ADMIN);
+        User existing = buildUser(id, "admin@test.local", "Admin", Role.ADMIN);
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
         when(userRepository.save(existing)).thenReturn(existing);
 
-        // When
         UserResponse response = userService.updateRole(id, Role.USER);
 
-        // Then
         assertThat(response.getRole()).isEqualTo(Role.USER);
     }
 
     @Test
     void shouldThrowWhenUpdatingRoleOfNonExistentUser() {
-        // Given
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> userService.updateRole(id, Role.ADMIN))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void shouldThrowWhenUpdatingRoleOfAdminMasterUser() {
+        UUID id = UUID.randomUUID();
+        User existing = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
+        when(userRepository.findById(id)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> userService.updateRole(id, Role.USER))
+                .isInstanceOf(BusinessException.class);
+        verify(userRepository, never()).save(any());
     }
 
     // --- delete ---
 
     @Test
     void shouldDeleteUserSuccessfully() {
-        // Given
         UUID id = UUID.randomUUID();
-        when(userRepository.existsById(id)).thenReturn(true);
+        User user = buildUser(id, "alice@test.local", "Alice", Role.USER);
+        when(userRepository.findById(id)).thenReturn(Optional.of(user));
 
-        // When
         MessageResponse response = userService.delete(id);
 
-        // Then
         assertThat(response.getMessage()).isEqualTo("User deleted successfully");
-        verify(userRepository).deleteById(id);
+        verify(userRepository).delete(user);
     }
 
     @Test
     void shouldThrowWhenDeletingNonExistentUser() {
-        // Given
         UUID id = UUID.randomUUID();
-        when(userRepository.existsById(id)).thenReturn(false);
+        when(userRepository.findById(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> userService.delete(id))
                 .isInstanceOf(ResourceNotFoundException.class);
-        verify(userRepository, never()).deleteById(any());
+        verify(userRepository, never()).delete(any(User.class));
     }
 
-    // --- Cenários futuros / SEC-05: mudança de role invalida tokens existentes (planejado)
+    @Test
+    void shouldThrowWhenDeletingAdminMasterUser() {
+        UUID id = UUID.randomUUID();
+        User master = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
+        when(userRepository.findById(id)).thenReturn(Optional.of(master));
+
+        assertThatThrownBy(() -> userService.delete(id))
+                .isInstanceOf(BusinessException.class);
+        verify(userRepository, never()).delete(any(User.class));
+    }
+
+    // --- cenário futuro / SEC-05 ---
 
     @Test
     void shouldPersistNewRoleOnUpdateRole() {
-        // Given — verifica que a role é de fato salva no banco (pré-condição para SEC-05)
         UUID id = UUID.randomUUID();
-        User existing = buildUser(id, "alice", Role.USER);
+        User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
         when(userRepository.save(existing)).thenReturn(existing);
 
-        // When
         userService.updateRole(id, Role.ADMIN);
 
-        // Then
         verify(userRepository).save(argThat(u -> Role.ADMIN.equals(u.getRole())));
     }
 }

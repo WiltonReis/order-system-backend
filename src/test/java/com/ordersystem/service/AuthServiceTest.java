@@ -2,11 +2,11 @@ package com.ordersystem.service;
 
 import com.ordersystem.dto.request.LoginRequest;
 import com.ordersystem.dto.response.AuthResponse;
-import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
-import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.JwtTokenProvider;
+import com.ordersystem.security.UserPrincipal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,9 +16,10 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,136 +37,142 @@ class AuthServiceTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @Mock
+    private RefreshTokenService refreshTokenService;
+
+    @Mock
+    private CustomerSaasRepository customerSaasRepository;
+
+    @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private AuthService authService;
 
-    private LoginRequest buildLoginRequest(String username, String password) {
+    private LoginRequest buildLoginRequest(String email, String password) {
         LoginRequest request = new LoginRequest();
-        request.setUsername(username);
+        request.setEmail(email);
         request.setPassword(password);
         return request;
     }
 
-    private User buildUser(UUID id, String username, Role role) {
-        User user = new User();
-        user.setId(id);
-        user.setUsername(username);
-        user.setPassword("encoded");
-        user.setRole(role);
-        return user;
+    private UserPrincipal buildPrincipal(UUID id, String email, String name, Role role) {
+        return new UserPrincipal(
+                id, email, name, UUID.randomUUID(), "encoded",
+                null,
+                List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
+        );
     }
 
-    private Authentication mockAuthentication(String username) {
-        UserDetails userDetails = mock(UserDetails.class);
-        //when(userDetails.getUsername()).thenReturn(username);
+    private Authentication mockAuthentication(UserPrincipal principal) {
         Authentication auth = mock(Authentication.class);
-        when(auth.getPrincipal()).thenReturn(userDetails);
+        when(auth.getPrincipal()).thenReturn(principal);
         return auth;
     }
 
     @Test
-    void shouldReturnAuthResponseWhenLoginSucceeds() {
-        // Given
+    void shouldReturnLoginResultWhenLoginSucceeds() {
         UUID userId = UUID.randomUUID();
-        LoginRequest request = buildLoginRequest("john", "password123");
-        Authentication auth = mockAuthentication("john");
+        LoginRequest request = buildLoginRequest("john@test.local", "password123");
+        UserPrincipal principal = buildPrincipal(userId, "john@test.local", "John", Role.USER);
+        Authentication auth = mockAuthentication(principal);
+
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
-        when(jwtTokenProvider.generateToken(any(UserDetails.class))).thenReturn("jwt-token");
-        when(userRepository.findByUsername("john")).thenReturn(Optional.of(buildUser(userId, "john", Role.USER)));
+        when(jwtTokenProvider.generateToken(principal)).thenReturn("jwt-token");
+        when(refreshTokenService.create(userId)).thenReturn("refresh-token");
 
-        // When
-        AuthResponse response = authService.login(request);
+        AuthService.LoginResult result = authService.login(request);
+        AuthResponse response = result.authResponse();
 
-        // Then
         assertThat(response.getId()).isEqualTo(userId);
         assertThat(response.getToken()).isEqualTo("jwt-token");
         assertThat(response.getType()).isEqualTo("Bearer");
-        assertThat(response.getUsername()).isEqualTo("john");
+        assertThat(response.getEmail()).isEqualTo("john@test.local");
+        assertThat(response.getName()).isEqualTo("John");
         assertThat(response.getRole()).isEqualTo("USER");
+        assertThat(result.refreshToken()).isEqualTo("refresh-token");
     }
 
     @Test
     void shouldReturnAdminRoleWhenAdminLogsIn() {
-        // Given
-        LoginRequest request = buildLoginRequest("admin", "pass");
-        Authentication auth = mockAuthentication("admin");
+        UUID userId = UUID.randomUUID();
+        LoginRequest request = buildLoginRequest("admin@test.local", "pass");
+        UserPrincipal principal = buildPrincipal(userId, "admin@test.local", "Admin", Role.ADMIN);
+        Authentication auth = mockAuthentication(principal);
+
         when(authenticationManager.authenticate(any())).thenReturn(auth);
-        when(jwtTokenProvider.generateToken(any())).thenReturn("admin-token");
-        when(userRepository.findByUsername("admin")).thenReturn(Optional.of(buildUser(UUID.randomUUID(), "admin", Role.ADMIN)));
+        when(jwtTokenProvider.generateToken(principal)).thenReturn("admin-token");
+        when(refreshTokenService.create(userId)).thenReturn("refresh-token");
 
-        // When
-        AuthResponse response = authService.login(request);
+        AuthService.LoginResult result = authService.login(request);
 
-        // Then
-        assertThat(response.getRole()).isEqualTo("ADMIN");
-        assertThat(response.getToken()).isEqualTo("admin-token");
+        assertThat(result.authResponse().getRole()).isEqualTo("ADMIN");
+        assertThat(result.authResponse().getToken()).isEqualTo("admin-token");
     }
 
     @Test
     void shouldThrowBadCredentialsWhenAuthenticationFails() {
-        // Given
-        LoginRequest request = buildLoginRequest("john", "wrong");
+        LoginRequest request = buildLoginRequest("john@test.local", "wrong");
         when(authenticationManager.authenticate(any())).thenThrow(new BadCredentialsException("Bad credentials"));
 
-        // When / Then
         assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BadCredentialsException.class);
-        verifyNoInteractions(userRepository, jwtTokenProvider);
-    }
-
-    @Test
-    void shouldThrowResourceNotFoundWhenUserDisappearsAfterAuthentication() {
-        // Given — QUAL-03: segunda query ao banco pode falhar em caso de deleção concorrente
-        LoginRequest request = buildLoginRequest("ghost", "password");
-        Authentication auth = mockAuthentication("ghost");
-        when(authenticationManager.authenticate(any())).thenReturn(auth);
-        when(jwtTokenProvider.generateToken(any())).thenReturn("token");
-        when(userRepository.findByUsername("ghost")).thenReturn(Optional.empty());
-
-        // When / Then
-        assertThatThrownBy(() -> authService.login(request))
-                .isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(jwtTokenProvider, refreshTokenService);
     }
 
     @Test
     void shouldCallAuthenticationManagerWithCorrectCredentials() {
-        // Given
-        LoginRequest request = buildLoginRequest("alice", "secret");
-        Authentication auth = mockAuthentication("alice");
+        UUID userId = UUID.randomUUID();
+        LoginRequest request = buildLoginRequest("alice@test.local", "secret");
+        UserPrincipal principal = buildPrincipal(userId, "alice@test.local", "Alice", Role.USER);
+        Authentication auth = mockAuthentication(principal);
+
         when(authenticationManager.authenticate(any())).thenReturn(auth);
         when(jwtTokenProvider.generateToken(any())).thenReturn("token");
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(buildUser(UUID.randomUUID(), "alice", Role.USER)));
+        when(refreshTokenService.create(any(UUID.class))).thenReturn("refresh-token");
 
-        // When
         authService.login(request);
 
-        // Then
         verify(authenticationManager).authenticate(argThat(token ->
                 token instanceof UsernamePasswordAuthenticationToken ut
-                        && "alice".equals(ut.getPrincipal())
+                        && "alice@test.local".equals(ut.getPrincipal())
                         && "secret".equals(ut.getCredentials())
         ));
     }
 
     @Test
-    void shouldGenerateTokenForAuthenticatedUserDetails() {
-        // Given
-        LoginRequest request = buildLoginRequest("bob", "pass");
-        UserDetails userDetails = mock(UserDetails.class);
-        //when(userDetails.getUsername()).thenReturn("bob");
-        Authentication auth = mock(Authentication.class);
-        when(auth.getPrincipal()).thenReturn(userDetails);
+    void shouldGenerateTokenForAuthenticatedPrincipal() {
+        UUID userId = UUID.randomUUID();
+        LoginRequest request = buildLoginRequest("bob@test.local", "pass");
+        UserPrincipal principal = buildPrincipal(userId, "bob@test.local", "Bob", Role.USER);
+        Authentication auth = mockAuthentication(principal);
+
         when(authenticationManager.authenticate(any())).thenReturn(auth);
-        when(jwtTokenProvider.generateToken(userDetails)).thenReturn("bob-token");
-        when(userRepository.findByUsername("bob")).thenReturn(Optional.of(buildUser(UUID.randomUUID(), "bob", Role.USER)));
+        when(jwtTokenProvider.generateToken(principal)).thenReturn("bob-token");
+        when(refreshTokenService.create(userId)).thenReturn("refresh-token");
 
-        // When
-        AuthResponse response = authService.login(request);
+        AuthService.LoginResult result = authService.login(request);
 
-        // Then
-        verify(jwtTokenProvider).generateToken(userDetails);
-        assertThat(response.getToken()).isEqualTo("bob-token");
+        verify(jwtTokenProvider).generateToken(principal);
+        assertThat(result.authResponse().getToken()).isEqualTo("bob-token");
+    }
+
+    @Test
+    void shouldCreateRefreshTokenWithPrincipalId() {
+        UUID userId = UUID.randomUUID();
+        LoginRequest request = buildLoginRequest("bob@test.local", "pass");
+        UserPrincipal principal = buildPrincipal(userId, "bob@test.local", "Bob", Role.USER);
+        Authentication auth = mockAuthentication(principal);
+
+        when(authenticationManager.authenticate(any())).thenReturn(auth);
+        when(jwtTokenProvider.generateToken(any())).thenReturn("token");
+        when(refreshTokenService.create(userId)).thenReturn("rt-value");
+
+        AuthService.LoginResult result = authService.login(request);
+
+        verify(refreshTokenService).create(userId);
+        assertThat(result.refreshToken()).isEqualTo("rt-value");
     }
 }

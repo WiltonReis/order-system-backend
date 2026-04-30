@@ -61,7 +61,7 @@ class ProductServiceTest {
         product.setName(name);
         product.setDescription("desc");
         product.setPrice(price);
-        product.setCreatedByUsername("admin");
+        product.setCreatedByName("admin");
         return product;
     }
 
@@ -99,7 +99,7 @@ class ProductServiceTest {
         productService.create(request);
 
         // Then
-        verify(productRepository).save(argThat(p -> "admin".equals(p.getCreatedByUsername())));
+        verify(productRepository).save(argThat(p -> "admin".equals(p.getCreatedByName())));
     }
 
     @Test
