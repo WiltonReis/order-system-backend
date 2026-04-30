@@ -14,13 +14,18 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "orders", indexes = {
-        @Index(name = "idx_orders_status", columnList = "status"),
-        @Index(name = "idx_orders_user_id", columnList = "user_id"),
-        @Index(name = "idx_orders_created_at", columnList = "createdAt"),
-        @Index(name = "idx_orders_customer_saas_id", columnList = "customer_saas_id"),
-        @Index(name = "idx_orders_customer_saas_id_status", columnList = "customer_saas_id, status")
-})
+@Table(name = "orders",
+        uniqueConstraints = {
+                // MT-21: order_code único por tenant (não globalmente)
+                @UniqueConstraint(name = "uk_orders_customer_saas_order_code", columnNames = {"customer_saas_id", "order_code"})
+        },
+        indexes = {
+                @Index(name = "idx_orders_status", columnList = "status"),
+                @Index(name = "idx_orders_user_id", columnList = "user_id"),
+                @Index(name = "idx_orders_created_at", columnList = "createdAt"),
+                @Index(name = "idx_orders_customer_saas_id", columnList = "customer_saas_id"),
+                @Index(name = "idx_orders_customer_saas_id_status", columnList = "customer_saas_id, status")
+        })
 @Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
 @Getter
 @Setter
@@ -53,14 +58,14 @@ public class Order {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal discount = BigDecimal.ZERO;
 
-    @Column(unique = true, length = 8)
+    @Column(length = 8)
     private String orderCode;
 
     @Column
-    private String completedByUsername;
+    private String completedByName;
 
     @Column
-    private String canceledByUsername;
+    private String canceledByName;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

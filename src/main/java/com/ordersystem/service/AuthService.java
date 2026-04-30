@@ -40,7 +40,7 @@ public class AuthService {
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         String accessToken = jwtTokenProvider.generateToken(principal);
-        String refreshToken = refreshTokenService.create(principal.getUsername());
+        String refreshToken = refreshTokenService.create(principal.getId());
 
         String role = principal.getAuthorities().stream()
                 .findFirst()

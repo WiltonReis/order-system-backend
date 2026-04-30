@@ -10,5 +10,5 @@ import java.util.UUID;
 public class UserSummaryResponse {
 
     private UUID id;
-    private String username;
+    private String name;
 }

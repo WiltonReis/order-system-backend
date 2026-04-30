@@ -24,12 +24,12 @@ public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional
-    public String create(String username) {
-        refreshTokenRepository.deleteByUsername(username);
+    public String create(UUID userId) {
+        refreshTokenRepository.deleteByUserId(userId);
 
         RefreshToken token = new RefreshToken();
         token.setToken(UUID.randomUUID().toString());
-        token.setUsername(username);
+        token.setUserId(userId);
         token.setCreatedAt(LocalDateTime.now());
         token.setExpiresAt(LocalDateTime.now().plusSeconds(refreshExpirationMs / 1000));
 
@@ -37,7 +37,7 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public String validate(String tokenValue) {
+    public UUID validate(String tokenValue) {
         RefreshToken token = refreshTokenRepository.findByToken(tokenValue)
                 .orElseThrow(() -> new BadCredentialsException("Refresh token inválido"));
 
@@ -46,7 +46,7 @@ public class RefreshTokenService {
             throw new BadCredentialsException("Refresh token expirado");
         }
 
-        return token.getUsername();
+        return token.getUserId();
     }
 
     @Transactional
@@ -55,8 +55,8 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public void deleteByUsername(String username) {
-        refreshTokenRepository.deleteByUsername(username);
+    public void deleteByUserId(UUID userId) {
+        refreshTokenRepository.deleteByUserId(userId);
     }
 
     @Scheduled(cron = "0 0 * * * *")

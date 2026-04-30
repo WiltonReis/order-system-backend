@@ -22,8 +22,8 @@ public class OrderDetailResponse {
     private String customerName;
     private LocalDateTime completedAt;
     private LocalDateTime canceledAt;
-    private String completedByUsername;
-    private String canceledByUsername;
+    private String completedByName;
+    private String canceledByName;
     private UserSummaryResponse user;
     private List<OrderItemResponse> items;
 }

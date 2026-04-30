@@ -40,9 +40,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query("SELECT o FROM Order o JOIN FETCH o.user LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.id = :id")
     Optional<Order> findByIdWithDetails(@Param("id") UUID id);
 
-    // PERF-03: próximo código de pedido via sequence PostgreSQL (atômico, sem loop de unicidade)
-    @Query(value = "SELECT nextval('order_code_seq')", nativeQuery = true)
-    Long getNextOrderCode();
+    // MT-21: próximo código de pedido por tenant (MAX+1); SERIALIZABLE na camada de serviço garante atomicidade
+    @Query(value = "SELECT COALESCE(MAX(CAST(order_code AS BIGINT)), 0) + 1 FROM orders WHERE customer_saas_id = :tenantId", nativeQuery = true)
+    Long getNextOrderCodeForTenant(@Param("tenantId") UUID tenantId);
 
     @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :from")
     long countByCreatedAtFrom(@Param("from") LocalDateTime from);

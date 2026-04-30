@@ -31,7 +31,7 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<Page<UserResponse>> findAll(
-            @PageableDefault(size = 20, sort = "username") Pageable pageable) {
+            @PageableDefault(size = 20, sort = "name") Pageable pageable) {
         return ResponseEntity.ok(userService.findAll(pageable));
     }
 

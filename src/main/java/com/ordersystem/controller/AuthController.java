@@ -94,8 +94,8 @@ public class AuthController {
             throw new BadCredentialsException("Refresh token ausente");
         }
 
-        String username = refreshTokenService.validate(refreshTokenValue);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        java.util.UUID userId = refreshTokenService.validate(refreshTokenValue);
+        UserDetails userDetails = userDetailsService.loadById(userId);
         String newAccessToken = jwtTokenProvider.generateToken(userDetails);
 
         setAccessCookie(response, newAccessToken);

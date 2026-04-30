@@ -15,10 +15,13 @@ import com.ordersystem.entity.User;
 import com.ordersystem.enums.OrderStatus;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
+import com.ordersystem.security.TenantContext;
+import com.ordersystem.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -27,6 +30,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.data.domain.PageRequest;
@@ -48,23 +52,26 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
+    private final CustomerSaasRepository customerSaasRepository;
 
-    // PERF-03: sequence PostgreSQL garante unicidade sem loop de retentativas
-    private String generateOrderCode() {
-        return String.format("%08d", orderRepository.getNextOrderCode());
+    // MT-21: MAX+1 por tenant dentro de transação SERIALIZABLE — sem race condition entre pedidos do mesmo tenant
+    private String generateOrderCode(UUID tenantId) {
+        return String.format("%08d", orderRepository.getNextOrderCodeForTenant(tenantId));
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public OrderResponse create(OrderRequest request) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", username));
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
+        UUID tenantId = TenantContext.getOrThrow();
         Order order = new Order();
         order.setStatus(OrderStatus.OPEN);
         order.setCreatedAt(LocalDateTime.now());
         order.setUser(user);
-        order.setOrderCode(generateOrderCode());
+        order.setOrderCode(generateOrderCode(tenantId));
+        order.setCustomerSaas(customerSaasRepository.getReferenceById(tenantId));
         if (request != null && request.getCustomerName() != null && !request.getCustomerName().isBlank()) {
             order.setCustomerName(request.getCustomerName().trim());
         }
@@ -74,17 +81,19 @@ public class OrderService {
     }
 
     // ESC-03: cria pedido completo (itens + desconto) em transação única — sem risco de estado parcial
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public OrderDetailResponse createFull(OrderFullRequest request) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", username));
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
+        UUID tenantId = TenantContext.getOrThrow();
         Order order = new Order();
         order.setStatus(OrderStatus.OPEN);
         order.setCreatedAt(LocalDateTime.now());
         order.setUser(user);
-        order.setOrderCode(generateOrderCode());
+        order.setOrderCode(generateOrderCode(tenantId));
+        order.setCustomerSaas(customerSaasRepository.getReferenceById(tenantId));
         if (request.getCustomerName() != null && !request.getCustomerName().isBlank()) {
             order.setCustomerName(request.getCustomerName().trim());
         }
@@ -225,10 +234,10 @@ public class OrderService {
             throw new BusinessException("Cannot complete a canceled order");
         }
 
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         order.setStatus(OrderStatus.COMPLETED);
         order.setCompletedAt(LocalDateTime.now());
-        order.setCompletedByUsername(username);
+        order.setCompletedByName(principal.getName());
 
         Order saved = orderRepository.save(order);
         return toOrderResponse(saved);
@@ -246,10 +255,10 @@ public class OrderService {
             throw new BusinessException("Cannot cancel a completed order");
         }
 
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         order.setStatus(OrderStatus.CANCELED);
         order.setCanceledAt(LocalDateTime.now());
-        order.setCanceledByUsername(username);
+        order.setCanceledByName(principal.getName());
 
         Order saved = orderRepository.save(order);
         return toOrderResponse(saved);
@@ -346,15 +355,15 @@ public class OrderService {
                 order.getCustomerName(),
                 order.getCompletedAt(),
                 order.getCanceledAt(),
-                order.getCompletedByUsername(),
-                order.getCanceledByUsername()
+                order.getCompletedByName(),
+                order.getCanceledByName()
         );
     }
 
     private OrderListResponse toOrderListResponse(Order order) {
         UserSummaryResponse userSummary = new UserSummaryResponse(
                 order.getUser().getId(),
-                order.getUser().getUsername()
+                order.getUser().getName()
         );
         return new OrderListResponse(
                 order.getId(),
@@ -365,8 +374,8 @@ public class OrderService {
                 order.getCustomerName(),
                 order.getCompletedAt(),
                 order.getCanceledAt(),
-                order.getCompletedByUsername(),
-                order.getCanceledByUsername(),
+                order.getCompletedByName(),
+                order.getCanceledByName(),
                 userSummary
         );
     }
@@ -374,7 +383,7 @@ public class OrderService {
     private OrderDetailResponse toOrderDetailResponse(Order order) {
         UserSummaryResponse userSummary = new UserSummaryResponse(
                 order.getUser().getId(),
-                order.getUser().getUsername()
+                order.getUser().getName()
         );
 
         List<OrderItemResponse> items = order.getItems().stream()
@@ -397,8 +406,8 @@ public class OrderService {
                 order.getCustomerName(),
                 order.getCompletedAt(),
                 order.getCanceledAt(),
-                order.getCompletedByUsername(),
-                order.getCanceledByUsername(),
+                order.getCompletedByName(),
+                order.getCanceledByName(),
                 userSummary,
                 items
         );

@@ -36,7 +36,7 @@ public class Product {
     private String imageUrl;
 
     @Column
-    private String createdByUsername;
+    private String createdByName;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_saas_id", nullable = false)

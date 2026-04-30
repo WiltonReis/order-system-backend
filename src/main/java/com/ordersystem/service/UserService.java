@@ -4,11 +4,14 @@ import com.ordersystem.dto.request.UserRequest;
 import com.ordersystem.dto.request.UserUpdateRequest;
 import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.UserResponse;
+import com.ordersystem.entity.CustomerSaas;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
+import com.ordersystem.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -25,19 +28,27 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final String ADMIN_MASTER_BLOCK_MESSAGE = "Administrador master não pode ser modificado";
+
     private final UserRepository userRepository;
+    private final CustomerSaasRepository customerSaasRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public UserResponse create(UserRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessException("Username already taken: " + request.getUsername());
+        if (userRepository.existsByEmailGlobal(request.getEmail())) {
+            throw new BusinessException("E-mail já cadastrado: " + request.getEmail());
         }
 
+        UUID tenantId = TenantContext.getOrThrow();
+        CustomerSaas tenant = customerSaasRepository.getReferenceById(tenantId);
+
         User user = new User();
-        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setName(request.getName());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole());
+        user.setCustomerSaas(tenant);
 
         User saved = userRepository.save(user);
         return toResponse(saved);
@@ -53,12 +64,17 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
-        if (!user.getUsername().equals(request.getUsername())
-                && userRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessException("Username already taken: " + request.getUsername());
+        if (user.getRole() == Role.ADMIN_MASTER) {
+            throw new BusinessException(ADMIN_MASTER_BLOCK_MESSAGE);
         }
 
-        user.setUsername(request.getUsername());
+        if (!user.getEmail().equals(request.getEmail())
+                && userRepository.existsByEmailGlobal(request.getEmail())) {
+            throw new BusinessException("E-mail já cadastrado: " + request.getEmail());
+        }
+
+        user.setEmail(request.getEmail());
+        user.setName(request.getName());
         if (StringUtils.hasText(request.getPassword())) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
@@ -72,6 +88,11 @@ public class UserService {
     public UserResponse updateRole(UUID id, Role role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
+
+        if (user.getRole() == Role.ADMIN_MASTER) {
+            throw new BusinessException(ADMIN_MASTER_BLOCK_MESSAGE);
+        }
+
         user.setRole(role);
         user.setTokenRevokedBefore(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).plusSeconds(1));
         User saved = userRepository.save(user);
@@ -80,14 +101,18 @@ public class UserService {
 
     @Transactional
     public MessageResponse delete(UUID id) {
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User", id);
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User", id));
+
+        if (user.getRole() == Role.ADMIN_MASTER) {
+            throw new BusinessException(ADMIN_MASTER_BLOCK_MESSAGE);
         }
-        userRepository.deleteById(id);
+
+        userRepository.delete(user);
         return new MessageResponse("User deleted successfully");
     }
 
     private UserResponse toResponse(User user) {
-        return new UserResponse(user.getId(), user.getUsername(), user.getRole());
+        return new UserResponse(user.getId(), user.getEmail(), user.getName(), user.getRole());
     }
 }

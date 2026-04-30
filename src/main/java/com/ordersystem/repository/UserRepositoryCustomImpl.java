@@ -6,6 +6,7 @@ import jakarta.persistence.PersistenceContext;
 import org.hibernate.Session;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
@@ -31,5 +32,16 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
                 .setParameter("email", email)
                 .getSingleResult();
         return count != null && count > 0;
+    }
+
+    @Override
+    public Optional<User> findByIdGlobal(UUID id) {
+        Session session = entityManager.unwrap(Session.class);
+        session.disableFilter("tenantFilter");
+        return entityManager.createQuery("SELECT u FROM User u WHERE u.id = :id", User.class)
+                .setParameter("id", id)
+                .getResultList()
+                .stream()
+                .findFirst();
     }
 }

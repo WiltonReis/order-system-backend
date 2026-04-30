@@ -5,6 +5,7 @@ import com.ordersystem.dto.response.TopProductResponse;
 import com.ordersystem.enums.OrderStatus;
 import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
+import com.ordersystem.security.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +45,7 @@ public class DashboardService {
                 ? revenue.divide(BigDecimal.valueOf(completedOrders), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        List<TopProductResponse> topProducts = orderItemRepository.findTopProductsByQuantity(from)
+        List<TopProductResponse> topProducts = orderItemRepository.findTopProductsByQuantity(from, TenantContext.getOrThrow())
                 .stream()
                 .map(p -> new TopProductResponse(p.getProductName(), p.getTotalQuantity()))
                 .toList();

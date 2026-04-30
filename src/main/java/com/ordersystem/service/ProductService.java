@@ -6,7 +6,10 @@ import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.ProductResponse;
 import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.ProductRepository;
+import com.ordersystem.security.TenantContext;
+import com.ordersystem.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -37,6 +40,7 @@ public class ProductService {
     private static final long MAX_SIZE = 5 * 1024 * 1024;
 
     private final ProductRepository productRepository;
+    private final CustomerSaasRepository customerSaasRepository;
 
     @Value("${app.upload.dir}")
     private String uploadDir;
@@ -47,19 +51,20 @@ public class ProductService {
             @CacheEvict(value = "products-paged", allEntries = true)
     })
     public ProductResponse create(ProductRequest request) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         Product product = new Product();
         product.setName(request.getName());
         product.setDescription(request.getDescription());
         product.setPrice(request.getPrice());
-        product.setCreatedByUsername(username);
+        product.setCreatedByName(principal.getName());
+        product.setCustomerSaas(customerSaasRepository.getReferenceById(TenantContext.getOrThrow()));
 
         Product saved = productRepository.save(product);
         return toResponse(saved);
     }
 
-    @Cacheable("products")
+    @Cacheable(value = "products", key = "T(com.ordersystem.security.TenantContext).get().toString()")
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() {
         return productRepository.findAll().stream()
@@ -67,7 +72,7 @@ public class ProductService {
                 .collect(Collectors.toList());
     }
 
-    @Cacheable(value = "products-paged", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
+    @Cacheable(value = "products-paged", key = "T(com.ordersystem.security.TenantContext).get().toString() + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     @Transactional(readOnly = true)
     public Page<ProductResponse> findAllPaged(Pageable pageable) {
         return productRepository.findAll(pageable).map(this::toResponse);

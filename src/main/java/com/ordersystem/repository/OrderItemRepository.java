@@ -20,9 +20,10 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, UUID> {
             JOIN products p ON oi.product_id = p.id
             JOIN orders o ON oi.order_id = o.id
             WHERE o.status = 'COMPLETED' AND o.created_at >= :from
+            AND o.customer_saas_id = :tenantId
             GROUP BY p.id, p.name
             ORDER BY SUM(oi.quantity) DESC
             LIMIT 5
             """, nativeQuery = true)
-    List<TopProductProjection> findTopProductsByQuantity(@Param("from") LocalDateTime from);
+    List<TopProductProjection> findTopProductsByQuantity(@Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
 }
