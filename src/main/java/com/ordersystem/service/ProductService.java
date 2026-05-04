@@ -11,7 +11,6 @@ import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -22,11 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -41,9 +36,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CustomerSaasRepository customerSaasRepository;
-
-    @Value("${app.upload.dir}")
-    private String uploadDir;
+    private final StorageService storageService;
 
     @Transactional
     @Caching(evict = {
@@ -136,30 +129,14 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
-        deleteOldImage(product.getImageUrl());
+        storageService.delete(product.getImageUrl());
 
         String ext = getExtension(file.getContentType());
         String filename = UUID.randomUUID() + ext;
+        String imageUrl = storageService.upload(file, filename);
 
-        Path dest = Path.of(uploadDir, "products", filename);
-        try {
-            Files.createDirectories(dest.getParent());
-            Files.copy(file.getInputStream(), dest, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new RuntimeException("Falha ao salvar imagem", e);
-        }
-
-        product.setImageUrl("/uploads/products/" + filename);
+        product.setImageUrl(imageUrl);
         return toResponse(productRepository.save(product));
-    }
-
-    private void deleteOldImage(String imageUrl) {
-        if (imageUrl == null) return;
-        String prefix = "/uploads/products/";
-        if (!imageUrl.startsWith(prefix)) return;
-        String filename = imageUrl.substring(prefix.length());
-        Path old = Path.of(uploadDir, "products", filename);
-        try { Files.deleteIfExists(old); } catch (IOException ignored) {}
     }
 
     private String getExtension(String contentType) {

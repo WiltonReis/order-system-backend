@@ -8,7 +8,7 @@ COPY pom.xml .
 RUN mvn dependency:go-offline -B --no-transfer-progress
 
 COPY src ./src
-RUN RUN mvn package -B --no-transfer-progress
+RUN mvn package -B --no-transfer-progress
 
 # ─── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine AS runtime

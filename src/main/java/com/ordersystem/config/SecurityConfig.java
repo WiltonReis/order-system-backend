@@ -34,7 +34,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsServiceImpl userDetailsService;
 
-    @Value("${app.cors.allowed-origin}")
+    @Value("${app.cors.allowed-origins}")
     private String allowedOrigin;
 
     @Bean

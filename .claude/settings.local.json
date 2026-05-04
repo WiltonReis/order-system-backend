@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(./mvnw compile *)",
-      "PowerShell(& \"C:\\\\Program Files\\\\Java\\\\zulu21.42.19-ca-jdk21.0.7-win_x64\\\\bin\\\\java.exe\" -version 2>&1)"
+      "PowerShell(& \"C:\\\\Program Files\\\\Java\\\\zulu21.42.19-ca-jdk21.0.7-win_x64\\\\bin\\\\java.exe\" -version 2>&1)",
+      "Bash(Get-ChildItem -Recurse -Include \"*.java\", \"*.sql\", \"*.xml\", \"*.yml\", \"*.yaml\", \"*.properties\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "PowerShell(head *)",
+      "Bash(New-Item -Path \"C:\\\\Users\\\\Wilton\\\\Desktop\\\\Projetos\\\\order-system\\\\create_database.sql\" -ItemType File -Force)",
+      "Bash(Out-Null)"
     ]
   }
 }
