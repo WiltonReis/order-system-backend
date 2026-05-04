@@ -13,10 +13,13 @@ import com.ordersystem.enums.OrderStatus;
 import com.ordersystem.enums.Role;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
+import com.ordersystem.security.TenantContext;
+import com.ordersystem.security.UserPrincipal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,13 +62,23 @@ class OrderServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    @Mock
+    private CustomerSaasRepository customerSaasRepository;
+
     @InjectMocks
     private OrderService orderService;
 
+    private static final UUID TENANT_ID = UUID.randomUUID();
+
     @BeforeEach
     void setUpSecurityContext() {
+        TenantContext.set(TENANT_ID);
+        UserPrincipal principal = new UserPrincipal(
+                UUID.randomUUID(), "operator@test.com", "operator", null, "pass", null, List.of()
+        );
         Authentication auth = mock(Authentication.class);
-        lenient().when(auth.getName()).thenReturn("operator");
+        lenient().when(auth.getName()).thenReturn("operator@test.com");
+        lenient().when(auth.getPrincipal()).thenReturn(principal);
         SecurityContext context = mock(SecurityContext.class);
         lenient().when(context.getAuthentication()).thenReturn(auth);
         SecurityContextHolder.setContext(context);
@@ -74,12 +87,14 @@ class OrderServiceTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+        TenantContext.clear();
     }
 
-    private User buildUser(String username) {
+    private User buildUser(String email) {
         User user = new User();
         user.setId(UUID.randomUUID());
-        user.setUsername(username);
+        user.setEmail(email);
+        user.setName(email);
         user.setRole(Role.USER);
         return user;
     }
@@ -120,11 +135,11 @@ class OrderServiceTest {
     @Test
     void shouldCreateOrderWithCustomerNameSuccessfully() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         OrderRequest request = new OrderRequest();
         request.setCustomerName("  John Doe  ");
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.of(user));
-        when(orderRepository.getNextOrderCode()).thenReturn(1L);
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
+        when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(1L);
         Order saved = buildOpenOrder(user);
         saved.setCustomerName("John Doe");
         when(orderRepository.save(any(Order.class))).thenReturn(saved);
@@ -140,11 +155,11 @@ class OrderServiceTest {
     @Test
     void shouldTrimCustomerNameBeforePersisting() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         OrderRequest request = new OrderRequest();
         request.setCustomerName("  Alice  ");
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.of(user));
-        when(orderRepository.getNextOrderCode()).thenReturn(2L);
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
+        when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(2L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // When
@@ -157,9 +172,9 @@ class OrderServiceTest {
     @Test
     void shouldCreateOrderWithoutCustomerNameWhenNotProvided() {
         // Given
-        User user = buildUser("operator");
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.of(user));
-        when(orderRepository.getNextOrderCode()).thenReturn(3L);
+        User user = buildUser("operator@test.com");
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
+        when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(3L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // When
@@ -172,11 +187,11 @@ class OrderServiceTest {
     @Test
     void shouldIgnoreBlankCustomerName() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         OrderRequest request = new OrderRequest();
         request.setCustomerName("   ");
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.of(user));
-        when(orderRepository.getNextOrderCode()).thenReturn(4L);
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
+        when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(4L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // When
@@ -189,9 +204,9 @@ class OrderServiceTest {
     @Test
     void shouldCreateOrderWithNullRequest() {
         // Given
-        User user = buildUser("operator");
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.of(user));
-        when(orderRepository.getNextOrderCode()).thenReturn(5L);
+        User user = buildUser("operator@test.com");
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
+        when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(5L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // When / Then — não deve lançar exceção
@@ -200,26 +215,26 @@ class OrderServiceTest {
     }
 
     @Test
-    void shouldFormatOrderCodeWithFiveDigitPadding() {
-        // Given — PERF-03: código gerado via sequence com padding de 5 dígitos
-        User user = buildUser("operator");
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.of(user));
-        when(orderRepository.getNextOrderCode()).thenReturn(7L);
+    void shouldFormatOrderCodeWithEightDigitPadding() {
+        // Given — MT-21: código gerado via sequence por tenant com padding de 8 dígitos
+        User user = buildUser("operator@test.com");
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
+        when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(7L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // When
         orderService.create(new OrderRequest());
 
         // Then
-        verify(orderRepository).save(argThat(o -> "00007".equals(o.getOrderCode())));
+        verify(orderRepository).save(argThat(o -> "00000007".equals(o.getOrderCode())));
     }
 
     @Test
     void shouldSetOrderStatusAsOpenOnCreate() {
         // Given
-        User user = buildUser("operator");
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.of(user));
-        when(orderRepository.getNextOrderCode()).thenReturn(1L);
+        User user = buildUser("operator@test.com");
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
+        when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(1L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
         // When
@@ -232,7 +247,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenCreatingOrderWithUnknownUser() {
         // Given
-        when(userRepository.findByUsername("operator")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.empty());
 
         // When / Then
         assertThatThrownBy(() -> orderService.create(new OrderRequest()))
@@ -245,7 +260,7 @@ class OrderServiceTest {
     @Test
     void shouldFindOrderByIdSuccessfully() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
 
@@ -275,7 +290,7 @@ class OrderServiceTest {
     void shouldReturnPagedOrders() {
         // Given
         Pageable pageable = PageRequest.of(0, 10);
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Page<Order> page = new PageImpl<>(List.of(buildOpenOrder(user)), pageable, 1);
         when(orderRepository.findAllWithUsersPaged(pageable)).thenReturn(page);
 
@@ -291,7 +306,7 @@ class OrderServiceTest {
     void shouldReturnActiveOrders() {
         // Given
         Pageable pageable = PageRequest.of(0, 10);
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Page<Order> page = new PageImpl<>(List.of(buildOpenOrder(user)), pageable, 1);
         when(orderRepository.findAllWithUsersByStatusPaged(OrderStatus.OPEN, pageable)).thenReturn(page);
 
@@ -306,7 +321,7 @@ class OrderServiceTest {
     void shouldReturnOrderHistoryWithCompletedAndCanceled() {
         // Given
         Pageable pageable = PageRequest.of(0, 10);
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order completed = buildOpenOrder(user);
         completed.setStatus(OrderStatus.COMPLETED);
         Page<Order> page = new PageImpl<>(List.of(completed), pageable, 1);
@@ -326,7 +341,7 @@ class OrderServiceTest {
     void shouldReturnAllOrderDetails() {
         // Given
         Pageable pageable = PageRequest.of(0, 10);
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         UUID orderId = order.getId();
         Page<UUID> idsPage = new PageImpl<>(List.of(orderId), pageable, 1);
@@ -360,7 +375,7 @@ class OrderServiceTest {
     @Test
     void shouldApplyDiscountToOpenOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("100.00"));
         order.getItems().add(buildItem(order, product, 2, new BigDecimal("100.00")));
@@ -382,7 +397,7 @@ class OrderServiceTest {
     @Test
     void shouldKeepTotalAtZeroWhenDiscountExceedsSubtotal() {
         // Given — BACK-01: desconto maior que subtotal não gera total negativo
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("10.00"));
         order.getItems().add(buildItem(order, product, 1, new BigDecimal("10.00")));
@@ -402,7 +417,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenApplyingDiscountToCompletedOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         OrderUpdateRequest request = new OrderUpdateRequest();
@@ -418,7 +433,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenApplyingDiscountToCanceledOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
         OrderUpdateRequest request = new OrderUpdateRequest();
@@ -448,7 +463,7 @@ class OrderServiceTest {
     @Test
     void shouldCompleteOpenOrderSuccessfully() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
@@ -459,13 +474,13 @@ class OrderServiceTest {
         // Then
         assertThat(response.getStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(order.getCompletedAt()).isNotNull();
-        assertThat(order.getCompletedByUsername()).isEqualTo("operator");
+        assertThat(order.getCompletedByName()).isEqualTo("operator");
     }
 
     @Test
-    void shouldSetCompletedByUsernameFromSecurityContext() {
+    void shouldSetCompletedByNameFromSecurityContext() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
@@ -474,13 +489,13 @@ class OrderServiceTest {
         orderService.completeOrder(order.getId());
 
         // Then
-        assertThat(order.getCompletedByUsername()).isEqualTo("operator");
+        assertThat(order.getCompletedByName()).isEqualTo("operator");
     }
 
     @Test
     void shouldThrowWhenCompletingAlreadyCompletedOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -494,7 +509,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenCompletingCanceledOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -521,7 +536,7 @@ class OrderServiceTest {
     @Test
     void shouldCancelOpenOrderSuccessfully() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
@@ -532,13 +547,13 @@ class OrderServiceTest {
         // Then
         assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELED);
         assertThat(order.getCanceledAt()).isNotNull();
-        assertThat(order.getCanceledByUsername()).isEqualTo("operator");
+        assertThat(order.getCanceledByName()).isEqualTo("operator");
     }
 
     @Test
-    void shouldSetCanceledByUsernameFromSecurityContext() {
+    void shouldSetCanceledByNameFromSecurityContext() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
@@ -547,13 +562,13 @@ class OrderServiceTest {
         orderService.cancelOrder(order.getId());
 
         // Then
-        assertThat(order.getCanceledByUsername()).isEqualTo("operator");
+        assertThat(order.getCanceledByName()).isEqualTo("operator");
     }
 
     @Test
     void shouldThrowWhenCancelingAlreadyCanceledOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -567,7 +582,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenCancelingCompletedOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
@@ -622,7 +637,7 @@ class OrderServiceTest {
     @Test
     void shouldAddItemToOpenOrderSuccessfully() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Product A", new BigDecimal("50.00"));
         OrderItemRequest request = new OrderItemRequest();
@@ -646,7 +661,7 @@ class OrderServiceTest {
     @Test
     void shouldRecalculateTotalAfterAddingItem() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("30.00"));
         OrderItemRequest request = new OrderItemRequest();
@@ -667,7 +682,7 @@ class OrderServiceTest {
     @Test
     void shouldSnapshotProductPriceAtTimeOfAdding() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("45.00"));
         OrderItemRequest request = new OrderItemRequest();
@@ -688,7 +703,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenAddingItemToCompletedOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
@@ -706,7 +721,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenAddingItemToCanceledOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
@@ -738,7 +753,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenAddingNonExistentProduct() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         UUID productId = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
@@ -758,7 +773,7 @@ class OrderServiceTest {
     @Test
     void shouldUpdateItemQuantitySuccessfully() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("20.00"));
         OrderItem item = buildItem(order, product, 1, new BigDecimal("20.00"));
@@ -782,7 +797,7 @@ class OrderServiceTest {
     @Test
     void shouldRecalculateTotalAfterUpdatingItem() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("10.00"));
         OrderItem item = buildItem(order, product, 1, new BigDecimal("10.00"));
@@ -805,7 +820,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenUpdatingItemOnNonOpenOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         UUID itemId = UUID.randomUUID();
@@ -823,7 +838,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenUpdatingNonExistentItem() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         UUID itemId = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
@@ -842,7 +857,7 @@ class OrderServiceTest {
     @Test
     void shouldRemoveItemFromOpenOrderSuccessfully() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("10.00"));
         OrderItem item = buildItem(order, product, 1, new BigDecimal("10.00"));
@@ -863,7 +878,7 @@ class OrderServiceTest {
     @Test
     void shouldRecalculateTotalToZeroAfterRemovingLastItem() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("50.00"));
         OrderItem item = buildItem(order, product, 2, new BigDecimal("50.00"));
@@ -885,7 +900,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenRemovingItemFromNonOpenOrder() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         UUID itemId = UUID.randomUUID();
@@ -900,7 +915,7 @@ class OrderServiceTest {
     @Test
     void shouldThrowWhenRemovingNonExistentItem() {
         // Given
-        User user = buildUser("operator");
+        User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         UUID itemId = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));

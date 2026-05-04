@@ -3,23 +3,13 @@ name: CI — Backend
 on:
   push:
     branches: ["**"]
-    paths:
-      - "order-system-backend/**"
-      - ".github/workflows/ci.yml"
   pull_request:
     branches: ["**"]
-    paths:
-      - "order-system-backend/**"
-      - ".github/workflows/ci.yml"
 
 jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: order-system-backend
 
     steps:
       - name: Checkout
@@ -44,5 +34,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          path: order-system-backend/target/surefire-reports/
+          path: target/surefire-reports/
           retention-days: 7

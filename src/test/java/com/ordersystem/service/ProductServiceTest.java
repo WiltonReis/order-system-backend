@@ -6,7 +6,10 @@ import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.ProductResponse;
 import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.ProductRepository;
+import com.ordersystem.security.TenantContext;
+import com.ordersystem.security.UserPrincipal;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,13 +41,23 @@ class ProductServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    @Mock
+    private CustomerSaasRepository customerSaasRepository;
+
     @InjectMocks
     private ProductService productService;
 
+    private static final UUID TENANT_ID = UUID.randomUUID();
+
     @BeforeEach
     void setUpSecurityContext() {
+        TenantContext.set(TENANT_ID);
+        UserPrincipal principal = new UserPrincipal(
+                UUID.randomUUID(), "admin@test.com", "admin", null, "pass", null, List.of()
+        );
         Authentication auth = mock(Authentication.class);
-        lenient().when(auth.getName()).thenReturn("admin");
+        lenient().when(auth.getName()).thenReturn("admin@test.com");
+        lenient().when(auth.getPrincipal()).thenReturn(principal);
         SecurityContext context = mock(SecurityContext.class);
         lenient().when(context.getAuthentication()).thenReturn(auth);
         SecurityContextHolder.setContext(context);
@@ -53,6 +66,7 @@ class ProductServiceTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+        TenantContext.clear();
     }
 
     private Product buildProduct(UUID id, String name, BigDecimal price) {
@@ -88,7 +102,7 @@ class ProductServiceTest {
     }
 
     @Test
-    void shouldSetCreatedByUsernameFromSecurityContext() {
+    void shouldSetCreatedByNameFromSecurityContext() {
         // Given
         ProductRequest request = new ProductRequest();
         request.setName("Gadget");
