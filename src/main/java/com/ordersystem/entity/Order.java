@@ -22,7 +22,7 @@ import java.util.UUID;
         indexes = {
                 @Index(name = "idx_orders_status", columnList = "status"),
                 @Index(name = "idx_orders_user_id", columnList = "user_id"),
-                @Index(name = "idx_orders_created_at", columnList = "createdAt"),
+                @Index(name = "idx_orders_created_at", columnList = "created_at"),
                 @Index(name = "idx_orders_customer_saas_id", columnList = "customer_saas_id"),
                 @Index(name = "idx_orders_customer_saas_id_status", columnList = "customer_saas_id, status")
         })
@@ -30,7 +30,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Order {
+public class Order extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -39,9 +39,6 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status;
-
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
 
     @Column
     private LocalDateTime completedAt;

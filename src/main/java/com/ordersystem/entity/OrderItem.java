@@ -9,11 +9,14 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
-@Table(name = "order_items")
+@Table(name = "order_items",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_order_items_order_product", columnNames = {"order_id", "product_id"})
+        })
 @Getter
 @Setter
 @NoArgsConstructor
-public class OrderItem {
+public class OrderItem extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
