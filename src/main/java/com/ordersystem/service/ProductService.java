@@ -77,7 +77,7 @@ public class ProductService {
             @CacheEvict(value = "products-paged", allEntries = true)
     })
     public ProductResponse update(UUID id, ProductUpdateRequest request) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
         product.setName(request.getName());
@@ -94,7 +94,7 @@ public class ProductService {
             @CacheEvict(value = "products-paged", allEntries = true)
     })
     public ProductResponse updatePrice(UUID id, BigDecimal price) {
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         product.setPrice(price);
         Product saved = productRepository.save(product);
@@ -107,9 +107,8 @@ public class ProductService {
             @CacheEvict(value = "products-paged", allEntries = true)
     })
     public MessageResponse delete(UUID id) {
-        if (!productRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Product", id);
-        }
+        productRepository.findByIdFiltered(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         productRepository.deleteById(id);
         return new MessageResponse("Product deleted successfully");
     }
@@ -126,7 +125,7 @@ public class ProductService {
         if (file.getSize() > MAX_SIZE)
             throw new IllegalArgumentException("Arquivo excede 5MB");
 
-        Product product = productRepository.findById(id)
+        Product product = productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
 
         storageService.delete(product.getImageUrl());

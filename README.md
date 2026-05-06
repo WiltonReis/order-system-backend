@@ -1,9 +1,10 @@
 # Order Management System — Backend
 
-![CI](https://github.com/WiltonReis/order-system/actions/workflows/ci.yml/badge.svg)
+[![Backend CI](https://github.com/WiltonReis/order-system-backend/actions/workflows/backend.yml/badge.svg)](https://github.com/WiltonReis/order-system-backend/actions/workflows/backend.yml)
 ![Java](https://img.shields.io/badge/Java-21-blue?logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-brightgreen?logo=springboot)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
+![Flyway](https://img.shields.io/badge/Flyway-migrations-red?logo=flyway)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 REST API para gerenciamento de pedidos, produtos e usuários. Desenvolvida com Java 21 e Spring Boot 3, com autenticação stateless via JWT e controle de acesso baseado em roles.
@@ -216,8 +217,10 @@ A API estará disponível em `http://localhost:8080`.
 ### Testes
 
 ```bash
-mvn test
+mvn verify
 ```
+
+> Os testes de integração usam **Testcontainers** — Docker deve estar em execução. Um container Postgres 16 é iniciado automaticamente e descartado ao fim dos testes.
 
 ---
 

@@ -208,7 +208,7 @@ class ProductServiceTest {
         request.setDescription("New desc");
         request.setPrice(new BigDecimal("15.00"));
 
-        when(productRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
         when(productRepository.save(existing)).thenReturn(existing);
 
         // When
@@ -229,7 +229,7 @@ class ProductServiceTest {
         request.setDescription("New desc");
         request.setPrice(new BigDecimal("2.00"));
 
-        when(productRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
         when(productRepository.save(existing)).thenReturn(existing);
 
         // When
@@ -248,7 +248,7 @@ class ProductServiceTest {
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName("X");
         request.setPrice(new BigDecimal("1.00"));
-        when(productRepository.findById(id)).thenReturn(Optional.empty());
+        when(productRepository.findByIdFiltered(id)).thenReturn(Optional.empty());
 
         // When / Then
         assertThatThrownBy(() -> productService.update(id, request))
@@ -263,7 +263,7 @@ class ProductServiceTest {
         // Given
         UUID id = UUID.randomUUID();
         Product existing = buildProduct(id, "Widget", new BigDecimal("10.00"));
-        when(productRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
         when(productRepository.save(existing)).thenReturn(existing);
 
         // When
@@ -278,7 +278,7 @@ class ProductServiceTest {
     void shouldThrowWhenUpdatingPriceOfNonExistentProduct() {
         // Given
         UUID id = UUID.randomUUID();
-        when(productRepository.findById(id)).thenReturn(Optional.empty());
+        when(productRepository.findByIdFiltered(id)).thenReturn(Optional.empty());
 
         // When / Then
         assertThatThrownBy(() -> productService.updatePrice(id, new BigDecimal("5.00")))
@@ -291,7 +291,8 @@ class ProductServiceTest {
     void shouldDeleteProductSuccessfully() {
         // Given
         UUID id = UUID.randomUUID();
-        when(productRepository.existsById(id)).thenReturn(true);
+        Product existing = buildProduct(id, "Widget", new BigDecimal("10.00"));
+        when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
 
         // When
         MessageResponse response = productService.delete(id);
@@ -305,7 +306,7 @@ class ProductServiceTest {
     void shouldThrowWhenDeletingNonExistentProduct() {
         // Given
         UUID id = UUID.randomUUID();
-        when(productRepository.existsById(id)).thenReturn(false);
+        when(productRepository.findByIdFiltered(id)).thenReturn(Optional.empty());
 
         // When / Then
         assertThatThrownBy(() -> productService.delete(id))
