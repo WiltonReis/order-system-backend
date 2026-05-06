@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -66,8 +67,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 || principal.getCustomerSaasId() == null
                                 || claimTenantId == null
                                 || !principal.getCustomerSaasId().equals(claimTenantId)) {
-                            log.warn("Token JWT recusado: tenantId ausente ou divergente do usuário");
-                            chain.doFilter(request, response);
+                            log.warn("Token JWT recusado: tenantId divergente [ip={}, path={}]",
+                                    getClientIp(request), request.getRequestURI());
+                            response.sendError(HttpStatus.UNAUTHORIZED.value(), "Token inválido");
                             return;
                         }
 
@@ -81,7 +83,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (Exception e) {
-                log.warn("Token JWT inválido: {}", e.getMessage());
+                log.warn("Token JWT inválido [ip={}, path={}]: {}",
+                        getClientIp(request), request.getRequestURI(), e.getMessage());
             }
         }
 
@@ -92,6 +95,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 TenantContext.clear();
             }
         }
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private String extractToken(HttpServletRequest request) {

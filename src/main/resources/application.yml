@@ -36,7 +36,7 @@ management:
       show-details: when-authorized
 
 jwt:
-  expiration: 1800000
+  expiration: 600000
   refresh-expiration: 2592000000
 
 app:

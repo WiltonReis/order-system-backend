@@ -81,13 +81,23 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,
+                                                     HttpServletRequest httpRequest) {
+        String clientIp = getClientIp(httpRequest);
+        if (!loginRateLimiterService.isAllowed(clientIp)) {
+            throw new TooManyRequestsException("Muitas tentativas de registro. Tente novamente em 15 minutos.");
+        }
         RegisterResponse body = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(body);
     }
 
     @PostMapping("/refresh")
     public ResponseEntity<Void> refresh(HttpServletRequest request, HttpServletResponse response) {
+        String clientIp = getClientIp(request);
+        if (!loginRateLimiterService.isAllowed(clientIp)) {
+            throw new TooManyRequestsException("Muitas tentativas de refresh. Tente novamente em 15 minutos.");
+        }
+
         String refreshTokenValue = extractCookieValue(request, REFRESH_COOKIE);
 
         if (refreshTokenValue == null) {
