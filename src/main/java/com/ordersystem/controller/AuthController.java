@@ -1,5 +1,7 @@
 package com.ordersystem.controller;
 
+import com.ordersystem.config.CookieProperties;
+import com.ordersystem.config.JwtProperties;
 import com.ordersystem.dto.request.LoginRequest;
 import com.ordersystem.dto.request.RegisterRequest;
 import com.ordersystem.dto.response.AuthResponse;
@@ -18,7 +20,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -46,15 +47,8 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserDetailsServiceImpl userDetailsService;
-
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
-
-    @Value("${jwt.refresh-expiration}")
-    private long refreshExpiration;
-
-    @Value("${COOKIE_SECURE:false}")
-    private boolean cookieSecure;
+    private final JwtProperties jwtProperties;
+    private final CookieProperties cookieProperties;
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
@@ -145,10 +139,10 @@ public class AuthController {
     private void setAccessCookie(HttpServletResponse response, String token) {
         ResponseCookie cookie = ResponseCookie.from(ACCESS_COOKIE, token)
                 .httpOnly(true)
-                .secure(cookieSecure)
+                .secure(cookieProperties.secure())
                 .sameSite("None")
                 .path("/")
-                .maxAge(Duration.ofMillis(jwtExpiration))
+                .maxAge(Duration.ofMillis(jwtProperties.expiration()))
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -156,10 +150,10 @@ public class AuthController {
     private void setRefreshCookie(HttpServletResponse response, String token) {
         ResponseCookie cookie = ResponseCookie.from(REFRESH_COOKIE, token)
                 .httpOnly(true)
-                .secure(cookieSecure)
+                .secure(cookieProperties.secure())
                 .sameSite("None")
                 .path("/auth")
-                .maxAge(Duration.ofMillis(refreshExpiration))
+                .maxAge(Duration.ofMillis(jwtProperties.refreshExpiration()))
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
@@ -167,7 +161,7 @@ public class AuthController {
     private void clearCookie(HttpServletResponse response, String name, String path) {
         ResponseCookie cookie = ResponseCookie.from(name, "")
                 .httpOnly(true)
-                .secure(cookieSecure)
+                .secure(cookieProperties.secure())
                 .sameSite("None")
                 .path(path)
                 .maxAge(0)

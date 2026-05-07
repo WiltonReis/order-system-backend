@@ -8,6 +8,7 @@ import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.ProductRepository;
+import com.ordersystem.security.AuthenticatedUserProvider;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,6 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -37,6 +37,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CustomerSaasRepository customerSaasRepository;
     private final StorageService storageService;
+    private final AuthenticatedUserProvider authenticatedUserProvider;
 
     @Transactional
     @Caching(evict = {
@@ -44,7 +45,7 @@ public class ProductService {
             @CacheEvict(value = "products-paged", allEntries = true)
     })
     public ProductResponse create(ProductRequest request) {
-        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserPrincipal principal = authenticatedUserProvider.getPrincipal();
 
         Product product = new Product();
         product.setName(request.getName());

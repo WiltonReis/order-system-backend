@@ -19,6 +19,7 @@ import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
+import com.ordersystem.security.AuthenticatedUserProvider;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import com.ordersystem.validation.OrderValidator;
@@ -28,7 +29,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +54,7 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final CustomerSaasRepository customerSaasRepository;
     private final OrderValidator orderValidator;
+    private final AuthenticatedUserProvider authenticatedUserProvider;
 
     // MT-21: MAX+1 por tenant dentro de transação SERIALIZABLE — sem race condition entre pedidos do mesmo tenant
     private String generateOrderCode(UUID tenantId) {
@@ -62,7 +63,7 @@ public class OrderService {
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public OrderResponse create(OrderRequest request) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        String email = authenticatedUserProvider.getEmail();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
@@ -84,7 +85,7 @@ public class OrderService {
     // ESC-03: cria pedido completo (itens + desconto) em transação única — sem risco de estado parcial
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public OrderDetailResponse createFull(OrderFullRequest request) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        String email = authenticatedUserProvider.getEmail();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
@@ -112,8 +113,7 @@ public class OrderService {
             order.getItems().add(item);
         }
 
-        boolean isAdmin = SecurityContextHolder.getContext().getAuthentication()
-                .getAuthorities().stream()
+        boolean isAdmin = authenticatedUserProvider.getPrincipal().getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         if (isAdmin && request.getDiscount() != null && request.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
@@ -238,7 +238,7 @@ public class OrderService {
 
         orderValidator.validateStatusTransition(order.getStatus(), OrderStatus.COMPLETED);
 
-        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserPrincipal principal = authenticatedUserProvider.getPrincipal();
         order.setStatus(OrderStatus.COMPLETED);
         order.setCompletedAt(LocalDateTime.now());
         order.setCompletedByName(principal.getName());
@@ -254,7 +254,7 @@ public class OrderService {
 
         orderValidator.validateStatusTransition(order.getStatus(), OrderStatus.CANCELED);
 
-        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserPrincipal principal = authenticatedUserProvider.getPrincipal();
         order.setStatus(OrderStatus.CANCELED);
         order.setCanceledAt(LocalDateTime.now());
         order.setCanceledByName(principal.getName());

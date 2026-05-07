@@ -1,10 +1,10 @@
 package com.ordersystem.service;
 
+import com.ordersystem.config.JwtProperties;
 import com.ordersystem.entity.RefreshToken;
 import com.ordersystem.repository.RefreshTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
@@ -18,9 +18,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    @Value("${jwt.refresh-expiration}")
-    private long refreshExpirationMs;
-
+    private final JwtProperties jwtProperties;
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional
@@ -31,7 +29,7 @@ public class RefreshTokenService {
         token.setToken(UUID.randomUUID().toString());
         token.setUserId(userId);
         token.setCreatedAt(LocalDateTime.now());
-        token.setExpiresAt(LocalDateTime.now().plusSeconds(refreshExpirationMs / 1000));
+        token.setExpiresAt(LocalDateTime.now().plusSeconds(jwtProperties.refreshExpiration() / 1000));
 
         return refreshTokenRepository.save(token).getToken();
     }

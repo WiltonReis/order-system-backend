@@ -1,20 +1,20 @@
 package com.ordersystem.config;
 
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
 @Profile("prod")
+@RequiredArgsConstructor
 public class CookieSecurityValidator {
 
-    @Value("${COOKIE_SECURE:false}")
-    private boolean cookieSecure;
+    private final CookieProperties cookieProperties;
 
     @PostConstruct
     void validate() {
-        if (!cookieSecure) {
+        if (!cookieProperties.secure()) {
             throw new IllegalStateException(
                 "Configuração inválida: COOKIE_SECURE deve ser 'true' em ambiente de produção. " +
                 "Defina a variável de ambiente COOKIE_SECURE=true.");

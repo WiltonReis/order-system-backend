@@ -18,6 +18,7 @@ import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
+import com.ordersystem.security.AuthenticatedUserProvider;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import com.ordersystem.validation.OrderValidator;
@@ -69,6 +70,9 @@ class OrderServiceTest {
 
     @Spy
     private OrderValidator orderValidator = new OrderValidator();
+
+    @Spy
+    private AuthenticatedUserProvider authenticatedUserProvider = new AuthenticatedUserProvider();
 
     @InjectMocks
     private OrderService orderService;
