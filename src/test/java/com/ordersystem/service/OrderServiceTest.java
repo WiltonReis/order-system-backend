@@ -20,12 +20,14 @@ import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
+import com.ordersystem.validation.OrderValidator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -64,6 +66,9 @@ class OrderServiceTest {
 
     @Mock
     private CustomerSaasRepository customerSaasRepository;
+
+    @Spy
+    private OrderValidator orderValidator = new OrderValidator();
 
     @InjectMocks
     private OrderService orderService;
@@ -395,8 +400,8 @@ class OrderServiceTest {
     }
 
     @Test
-    void shouldKeepTotalAtZeroWhenDiscountExceedsSubtotal() {
-        // Given — BACK-01: desconto maior que subtotal não gera total negativo
+    void shouldThrowWhenDiscountExceedsSubtotal() {
+        // Given — desconto >= subtotal é rejeitado pelo OrderValidator
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("10.00"));
@@ -405,13 +410,11 @@ class OrderServiceTest {
         OrderUpdateRequest request = new OrderUpdateRequest();
         request.setDiscount(new BigDecimal("50.00"));
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
-        when(orderRepository.save(order)).thenReturn(order);
 
-        // When
-        OrderUpdateResponse response = orderService.applyDiscount(order.getId(), request);
-
-        // Then
-        assertThat(response.getTotal()).isEqualByComparingTo("0.00");
+        // When / Then
+        assertThatThrownBy(() -> orderService.applyDiscount(order.getId(), request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("subtotal");
     }
 
     @Test
@@ -517,7 +520,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.completeOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("canceled");
+                .hasMessageContaining("OPEN");
     }
 
     @Test
@@ -590,7 +593,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.cancelOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("completed");
+                .hasMessageContaining("OPEN");
     }
 
     @Test
