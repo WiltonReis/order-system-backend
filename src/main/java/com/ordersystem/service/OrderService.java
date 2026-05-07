@@ -13,7 +13,6 @@ import com.ordersystem.entity.OrderItem;
 import com.ordersystem.entity.Product;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.OrderStatus;
-import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.OrderItemRepository;
@@ -22,6 +21,7 @@ import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
+import com.ordersystem.validation.OrderValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -53,6 +53,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final CustomerSaasRepository customerSaasRepository;
+    private final OrderValidator orderValidator;
 
     // MT-21: MAX+1 por tenant dentro de transação SERIALIZABLE — sem race condition entre pedidos do mesmo tenant
     private String generateOrderCode(UUID tenantId) {
@@ -98,6 +99,8 @@ public class OrderService {
             order.setCustomerName(request.getCustomerName().trim());
         }
 
+        orderValidator.validateNoDuplicateItems(request.getItems());
+
         for (OrderItemRequest itemReq : request.getItems()) {
             Product product = productRepository.findById(itemReq.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product", itemReq.getProductId()));
@@ -109,16 +112,19 @@ public class OrderService {
             order.getItems().add(item);
         }
 
-        order.recalculateTotal();
-
         boolean isAdmin = SecurityContextHolder.getContext().getAuthentication()
                 .getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
         if (isAdmin && request.getDiscount() != null && request.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal subtotal = order.getItems().stream()
+                    .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            orderValidator.validateDiscountNotExceedsSubtotal(request.getDiscount(), subtotal);
             order.setDiscount(request.getDiscount());
-            order.recalculateTotal();
         }
+
+        order.recalculateTotal();
 
         Order saved = orderRepository.save(order);
         return toOrderDetailResponse(saved);
@@ -211,9 +217,12 @@ public class OrderService {
         Order order = orderRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", id));
 
-        if (order.getStatus() != OrderStatus.OPEN) {
-            throw new BusinessException("Discount can only be applied to OPEN orders");
-        }
+        orderValidator.validateOrderIsOpen(order.getStatus());
+
+        BigDecimal subtotal = order.getItems().stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        orderValidator.validateDiscountNotExceedsSubtotal(request.getDiscount(), subtotal);
 
         order.setDiscount(request.getDiscount());
         order.recalculateTotal();
@@ -227,12 +236,7 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", id));
 
-        if (order.getStatus() == OrderStatus.COMPLETED) {
-            throw new BusinessException("Order is already completed");
-        }
-        if (order.getStatus() == OrderStatus.CANCELED) {
-            throw new BusinessException("Cannot complete a canceled order");
-        }
+        orderValidator.validateStatusTransition(order.getStatus(), OrderStatus.COMPLETED);
 
         UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         order.setStatus(OrderStatus.COMPLETED);
@@ -248,12 +252,7 @@ public class OrderService {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", id));
 
-        if (order.getStatus() == OrderStatus.CANCELED) {
-            throw new BusinessException("Order is already canceled");
-        }
-        if (order.getStatus() == OrderStatus.COMPLETED) {
-            throw new BusinessException("Cannot cancel a completed order");
-        }
+        orderValidator.validateStatusTransition(order.getStatus(), OrderStatus.CANCELED);
 
         UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         order.setStatus(OrderStatus.CANCELED);
@@ -278,9 +277,7 @@ public class OrderService {
         Order order = orderRepository.findByIdWithDetails(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        if (order.getStatus() != OrderStatus.OPEN) {
-            throw new BusinessException("Items can only be added to OPEN orders");
-        }
+        orderValidator.validateOrderIsOpen(order.getStatus());
 
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product", request.getProductId()));
@@ -309,9 +306,7 @@ public class OrderService {
         Order order = orderRepository.findByIdWithDetails(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        if (order.getStatus() != OrderStatus.OPEN) {
-            throw new BusinessException("Items can only be updated on OPEN orders");
-        }
+        orderValidator.validateOrderIsOpen(order.getStatus());
 
         OrderItem item = orderItemRepository.findByIdAndOrderId(itemId, orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("OrderItem", itemId));
@@ -330,9 +325,7 @@ public class OrderService {
         Order order = orderRepository.findByIdWithDetails(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", orderId));
 
-        if (order.getStatus() != OrderStatus.OPEN) {
-            throw new BusinessException("Items can only be removed from OPEN orders");
-        }
+        orderValidator.validateOrderIsOpen(order.getStatus());
 
         OrderItem item = orderItemRepository.findByIdAndOrderId(itemId, orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("OrderItem", itemId));

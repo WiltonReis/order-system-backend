@@ -1,6 +1,7 @@
 package com.ordersystem.dto.request;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -24,5 +25,6 @@ public class OrderFullRequest {
     private List<OrderItemRequest> items;
 
     @PositiveOrZero
+    @Digits(integer = 8, fraction = 2)
     private BigDecimal discount;
 }
