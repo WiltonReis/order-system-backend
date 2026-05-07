@@ -148,6 +148,13 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <!-- Observabilidade: encoder JSON estruturado para logs em produção -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>7.4</version>
+        </dependency>
+
         <!-- Testcontainers: integration tests with real Postgres -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -1,5 +1,6 @@
 package com.ordersystem.config;
 
+import com.ordersystem.infra.MdcFilter;
 import com.ordersystem.security.JwtAuthenticationFilter;
 import com.ordersystem.security.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final MdcFilter mdcFilter;
     private final UserDetailsServiceImpl userDetailsService;
 
     @Value("${app.cors.allowed-origins}")
@@ -55,7 +57,8 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(mdcFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
