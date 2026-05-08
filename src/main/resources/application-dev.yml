@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5433/order_system
+    url: jdbc:postgresql://localhost:5432/order-system-bd
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -16,7 +16,7 @@ spring:
 
 jwt:
   # Fallback é APENAS para desenvolvimento local — nunca usar em produção.
-  secret: ${JWT_SECRET:dGhpcy1pcy1hLWRldi1vbmx5LXNlY3JldC1rZXktbWluLTMyLWJ5dGVz}
+  secret: ${JWT_SECRET:m9Qkq8Xl3vJ2p9zRk8k1bQw3d2s9a0LQ0mQk8mZp8vA=}
 
 app:
   upload:

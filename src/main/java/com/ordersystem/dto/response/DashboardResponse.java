@@ -5,6 +5,7 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @AllArgsConstructor
@@ -14,4 +15,6 @@ public class DashboardResponse {
     private double cancelRate;
     private BigDecimal averageTicket;
     private List<TopProductResponse> topProducts;
+    private Map<String, Long> ordersByStatus;
+    private List<RevenueByDayResponse> revenueByDay;
 }

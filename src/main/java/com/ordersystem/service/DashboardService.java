@@ -1,6 +1,7 @@
 package com.ordersystem.service;
 
 import com.ordersystem.dto.response.DashboardResponse;
+import com.ordersystem.dto.response.RevenueByDayResponse;
 import com.ordersystem.dto.response.TopProductResponse;
 import com.ordersystem.enums.OrderStatus;
 import com.ordersystem.repository.OrderItemRepository;
@@ -15,6 +16,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -32,6 +34,7 @@ public class DashboardService {
         long totalOrders = orderRepository.countByCreatedAtFrom(from, tenantId);
         long canceledOrders = orderRepository.countByStatusFrom(OrderStatus.CANCELED, from, tenantId);
         long completedOrders = orderRepository.countByStatusFrom(OrderStatus.COMPLETED, from, tenantId);
+        long openOrders = totalOrders - canceledOrders - completedOrders;
 
         BigDecimal revenue = orderRepository.sumTotalByStatusFrom(OrderStatus.COMPLETED, from, tenantId);
         if (revenue == null) revenue = BigDecimal.ZERO;
@@ -52,7 +55,22 @@ public class DashboardService {
                 .map(p -> new TopProductResponse(p.getProductName(), p.getTotalQuantity()))
                 .toList();
 
-        return new DashboardResponse(totalOrders, revenue, cancelRate, averageTicket, topProducts);
+        Map<String, Long> ordersByStatus = Map.of(
+                "OPEN", openOrders,
+                "COMPLETED", completedOrders,
+                "CANCELED", canceledOrders
+        );
+
+        List<RevenueByDayResponse> revenueByDay = orderRepository.sumCompletedByDay(from, tenantId)
+                .stream()
+                .map(r -> new RevenueByDayResponse(
+                        r.getDate(),
+                        r.getRevenue() != null ? r.getRevenue() : BigDecimal.ZERO
+                ))
+                .toList();
+
+        return new DashboardResponse(totalOrders, revenue, cancelRate, averageTicket,
+                topProducts, ordersByStatus, revenueByDay);
     }
 
     private LocalDateTime resolveFrom(String period) {

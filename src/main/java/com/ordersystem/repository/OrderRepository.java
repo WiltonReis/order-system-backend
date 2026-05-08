@@ -53,4 +53,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
     @Query("SELECT SUM(o.total) FROM Order o WHERE o.status = :status AND o.createdAt >= :from AND o.customerSaas.id = :tenantId")
     BigDecimal sumTotalByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
+
+    @Query(value = """
+            SELECT CAST(created_at AS date)::text AS date, SUM(total) AS revenue
+            FROM orders
+            WHERE status = 'COMPLETED' AND created_at >= :from AND customer_saas_id = :tenantId
+            GROUP BY CAST(created_at AS date)
+            ORDER BY CAST(created_at AS date)
+            """, nativeQuery = true)
+    List<RevenueByDayProjection> sumCompletedByDay(@Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
 }
