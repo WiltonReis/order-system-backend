@@ -55,11 +55,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     BigDecimal sumTotalByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
 
     @Query(value = """
-            SELECT CAST(created_at AS date)::text AS date, SUM(total) AS revenue
+            SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS date, SUM(total) AS revenue
             FROM orders
             WHERE status = 'COMPLETED' AND created_at >= :from AND customer_saas_id = :tenantId
-            GROUP BY CAST(created_at AS date)
-            ORDER BY CAST(created_at AS date)
+            GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
+            ORDER BY TO_CHAR(created_at, 'YYYY-MM-DD')
             """, nativeQuery = true)
     List<RevenueByDayProjection> sumCompletedByDay(@Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
 }
