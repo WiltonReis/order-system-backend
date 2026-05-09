@@ -43,12 +43,12 @@ class TenantIsolationIntegrationTest extends BaseIntegrationTest {
 
     @BeforeAll
     void setup() throws Exception {
-        register("Empresa Alpha Ltda", "11111111000191", "Administrador Alpha", "admin@alpha.test", "Alpha1234");
+        register("Empresa Alpha Ltda", "11222333000181", "Administrador Alpha", "admin@alpha.test", "Alpha1234");
         cookieA = login("admin@alpha.test", "Alpha1234");
         productAId = createProduct(cookieA, "Produto Alpha", new BigDecimal("50.00"));
         orderAId = createOrder(cookieA, productAId);
 
-        register("Empresa Beta SA", "22222222000192", "Administrador Beta", "admin@beta.test", "Beta1234");
+        register("Empresa Beta SA", "12345678000195", "Administrador Beta", "admin@beta.test", "Beta1234");
         cookieB = login("admin@beta.test", "Beta1234");
         productBId = createProduct(cookieB, "Produto Beta", new BigDecimal("75.00"));
         orderBId = createOrder(cookieB, productBId);
