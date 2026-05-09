@@ -1,5 +1,6 @@
 package com.ordersystem.dto.request;
 
+import com.ordersystem.validation.CpfCnpj;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -19,6 +20,7 @@ public class RegisterRequest {
 
     @NotBlank
     @Size(max = 20)
+    @CpfCnpj
     private String cpfCnpj;
 
     @NotBlank
