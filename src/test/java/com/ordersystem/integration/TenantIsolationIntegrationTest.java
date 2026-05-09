@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -134,6 +135,38 @@ class TenantIsolationIntegrationTest extends BaseIntegrationTest {
 
         assertThat(response).contains("admin@beta.test");
         assertThat(response).doesNotContain("admin@alpha.test");
+    }
+
+    // === Soft-delete / Restore ===
+
+    @Test
+    @DisplayName("Tenant B não consegue restaurar pedido soft-deleted de Tenant A — espera 404")
+    void tenantB_cannotRestore_softDeleted_tenantA_order() throws Exception {
+        UUID orderToDelete = createOrder(cookieA, productAId);
+        mockMvc.perform(delete("/orders/{id}", orderToDelete)
+                        .cookie(new Cookie("oms.token", cookieA)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/orders/{id}/restore", orderToDelete)
+                        .cookie(new Cookie("oms.token", cookieB)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Tenant A restaura próprio pedido soft-deleted — Tenant B não é afetado")
+    void tenantA_restores_ownOrder_tenantB_unaffected() throws Exception {
+        UUID orderToRestore = createOrder(cookieA, productAId);
+        mockMvc.perform(delete("/orders/{id}", orderToRestore)
+                        .cookie(new Cookie("oms.token", cookieA)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/orders/{id}/restore", orderToRestore)
+                        .cookie(new Cookie("oms.token", cookieA)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/orders/{id}", orderBId)
+                        .cookie(new Cookie("oms.token", cookieB)))
+                .andExpect(status().isOk());
     }
 
     // === Helpers ===
