@@ -24,7 +24,7 @@ import java.util.UUID;
 })
 @FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "tenantId", type = UUID.class))
 @Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
-@SQLDelete(sql = "UPDATE users SET deleted_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE users SET deleted_at = NOW(), version = version + 1 WHERE id = ? AND version = ?")
 @SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter

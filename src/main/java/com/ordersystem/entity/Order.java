@@ -29,7 +29,7 @@ import java.util.UUID;
                 @Index(name = "idx_orders_customer_saas_id_status", columnList = "customer_saas_id, status")
         })
 @Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
-@SQLDelete(sql = "UPDATE orders SET deleted_at = NOW() WHERE id = ?")
+@SQLDelete(sql = "UPDATE orders SET deleted_at = NOW(), version = version + 1 WHERE id = ? AND version = ?")
 @SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
