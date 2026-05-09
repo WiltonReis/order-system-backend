@@ -13,6 +13,7 @@ import com.ordersystem.entity.OrderItem;
 import com.ordersystem.entity.Product;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.OrderStatus;
+import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.OrderItemRepository;
@@ -270,6 +271,34 @@ public class OrderService {
         }
         orderRepository.deleteById(id);
         return new MessageResponse("Order deleted successfully");
+    }
+
+    // Janela curta de restore para evitar zumbis (toast "Desfazer" do frontend dura ~5s)
+    private static final long RESTORE_WINDOW_SECONDS = 60;
+
+    @Transactional
+    public MessageResponse restore(UUID id) {
+        UUID tenantId = TenantContext.getOrThrow();
+
+        // Native query bypassa @SQLRestriction e @Filter — validação de tenant é manual aqui.
+        Order order = orderRepository.findByIdIncludingDeleted(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", id));
+
+        if (!order.getCustomerSaas().getId().equals(tenantId)) {
+            throw new ResourceNotFoundException("Order", id);
+        }
+
+        if (order.getDeletedAt() == null) {
+            throw new BusinessException("Pedido não está excluído.");
+        }
+
+        if (order.getDeletedAt().isBefore(LocalDateTime.now().minusSeconds(RESTORE_WINDOW_SECONDS))) {
+            throw new BusinessException("Janela para desfazer expirou.");
+        }
+
+        order.setDeletedAt(null);
+        orderRepository.save(order);
+        return new MessageResponse("Order restored successfully");
     }
 
     @Transactional

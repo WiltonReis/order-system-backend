@@ -114,6 +114,12 @@ public class OrderController {
         return ResponseEntity.ok(orderService.delete(id));
     }
 
+    @PostMapping("/{id}/restore")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<MessageResponse> restore(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.restore(id));
+    }
+
     @PostMapping("/{id}/items")
     public ResponseEntity<OrderItemResponse> addItem(@PathVariable UUID id,
                                                      @Valid @RequestBody OrderItemRequest request) {
