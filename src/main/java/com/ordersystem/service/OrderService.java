@@ -59,6 +59,7 @@ public class OrderService {
     private final CustomerSaasRepository customerSaasRepository;
     private final OrderValidator orderValidator;
     private final AuthenticatedUserProvider authenticatedUserProvider;
+    private final OrderPdfService orderPdfService;
 
     // MT-21: MAX+1 por tenant dentro de transação SERIALIZABLE — sem race condition entre pedidos do mesmo tenant
     private String generateOrderCode(UUID tenantId) {
@@ -214,6 +215,12 @@ public class OrderService {
         Order order = orderRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", id));
         return toOrderDetailResponse(order);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportPdf(UUID id) {
+        OrderDetailResponse order = findById(id);
+        return orderPdfService.generate(order);
     }
 
     @Transactional

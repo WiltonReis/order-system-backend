@@ -9,13 +9,17 @@ import com.ordersystem.dto.request.OrderUpdateRequest;
 import com.ordersystem.enums.OrderStatus;
 import com.ordersystem.dto.response.*;
 import com.ordersystem.service.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -118,6 +122,18 @@ public class OrderController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<MessageResponse> restore(@PathVariable UUID id) {
         return ResponseEntity.ok(orderService.restore(id));
+    }
+
+    @GetMapping(value = "/{id}/pdf", produces = "application/pdf")
+    @Operation(summary = "Exporta PDF completo do pedido. Retorna 404 para pedidos excluídos.")
+    public ResponseEntity<byte[]> exportPdf(@PathVariable UUID id) {
+        byte[] pdf = orderService.exportPdf(id);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("pedido-" + id + ".pdf")
+                .build());
+        return ResponseEntity.ok().headers(headers).body(pdf);
     }
 
     @GetMapping("/{id}/status-history")
