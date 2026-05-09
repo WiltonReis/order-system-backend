@@ -10,6 +10,7 @@ import com.ordersystem.specification.OrderSpecification;
 import com.ordersystem.dto.response.*;
 import com.ordersystem.entity.Order;
 import com.ordersystem.entity.OrderItem;
+import com.ordersystem.entity.OrderStatusHistory;
 import com.ordersystem.entity.Product;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.OrderStatus;
@@ -18,6 +19,7 @@ import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
+import com.ordersystem.repository.OrderStatusHistoryRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.AuthenticatedUserProvider;
@@ -51,6 +53,7 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final OrderStatusHistoryRepository statusHistoryRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final CustomerSaasRepository customerSaasRepository;
@@ -240,11 +243,13 @@ public class OrderService {
         orderValidator.validateStatusTransition(order.getStatus(), OrderStatus.COMPLETED);
 
         UserPrincipal principal = authenticatedUserProvider.getPrincipal();
+        OrderStatus oldStatus = order.getStatus();
         order.setStatus(OrderStatus.COMPLETED);
         order.setCompletedAt(LocalDateTime.now());
         order.setCompletedByName(principal.getName());
 
         Order saved = orderRepository.save(order);
+        recordStatusChange(saved, oldStatus, OrderStatus.COMPLETED, principal);
         return toOrderResponse(saved);
     }
 
@@ -256,12 +261,46 @@ public class OrderService {
         orderValidator.validateStatusTransition(order.getStatus(), OrderStatus.CANCELED);
 
         UserPrincipal principal = authenticatedUserProvider.getPrincipal();
+        OrderStatus oldStatus = order.getStatus();
         order.setStatus(OrderStatus.CANCELED);
         order.setCanceledAt(LocalDateTime.now());
         order.setCanceledByName(principal.getName());
 
         Order saved = orderRepository.save(order);
+        recordStatusChange(saved, oldStatus, OrderStatus.CANCELED, principal);
         return toOrderResponse(saved);
+    }
+
+    // [22] Histórico de status — escrita explícita no service em vez de @EntityListener.
+    // Motivo: persistir entidade dentro de @PreUpdate exige BeanUtil estático para DI
+    // e tem comportamento frágil durante o flush do Hibernate. Service-level é testável,
+    // determinístico, e cobre todas as transições atuais (complete/cancel).
+    private void recordStatusChange(Order order, OrderStatus from, OrderStatus to, UserPrincipal principal) {
+        OrderStatusHistory history = new OrderStatusHistory();
+        history.setOrder(order);
+        history.setCustomerSaas(order.getCustomerSaas());
+        history.setFromStatus(from);
+        history.setToStatus(to);
+        history.setChangedAt(LocalDateTime.now());
+        history.setChangedBy(principal.getName());
+        statusHistoryRepository.save(history);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderStatusHistoryResponse> getStatusHistory(UUID orderId) {
+        // @Filter de tenant cobre orderRepository; existsById filtrado garante 404 cross-tenant.
+        if (!orderRepository.existsById(orderId)) {
+            throw new ResourceNotFoundException("Order", orderId);
+        }
+        return statusHistoryRepository.findByOrderIdOrderByChangedAtDesc(orderId).stream()
+                .map(h -> new OrderStatusHistoryResponse(
+                        h.getId(),
+                        h.getFromStatus(),
+                        h.getToStatus(),
+                        h.getChangedAt(),
+                        h.getChangedBy()
+                ))
+                .toList();
     }
 
     @Transactional

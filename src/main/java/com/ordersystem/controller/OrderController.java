@@ -120,6 +120,11 @@ public class OrderController {
         return ResponseEntity.ok(orderService.restore(id));
     }
 
+    @GetMapping("/{id}/status-history")
+    public ResponseEntity<List<OrderStatusHistoryResponse>> statusHistory(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.getStatusHistory(id));
+    }
+
     @PostMapping("/{id}/items")
     public ResponseEntity<OrderItemResponse> addItem(@PathVariable UUID id,
                                                      @Valid @RequestBody OrderItemRequest request) {
