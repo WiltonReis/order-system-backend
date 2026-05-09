@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +29,8 @@ import java.util.UUID;
                 @Index(name = "idx_orders_customer_saas_id_status", columnList = "customer_saas_id, status")
         })
 @Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
+@SQLDelete(sql = "UPDATE orders SET deleted_at = NOW() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -72,7 +76,17 @@ public class Order extends BaseEntity {
     @JoinColumn(name = "customer_saas_id", nullable = false)
     private CustomerSaas customerSaas;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    // Sem CascadeType.REMOVE: soft-delete do Order não deve apagar itens fisicamente.
+    // Itens permanecem em order_items (acessíveis após restore via [21]).
+    // orphanRemoval=true ainda funciona para remoção de item individual durante edição.
+    @OneToMany(
+            mappedBy = "order",
+            cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH, CascadeType.DETACH},
+            orphanRemoval = true
+    )
     private List<OrderItem> items = new ArrayList<>();
 
     public void recalculateTotal() {

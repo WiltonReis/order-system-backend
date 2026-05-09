@@ -8,6 +8,8 @@ import lombok.Setter;
 import org.hibernate.annotations.Filter;
 import org.hibernate.annotations.FilterDef;
 import org.hibernate.annotations.ParamDef;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -16,13 +18,14 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_users_customer_saas_id", columnList = "customer_saas_id"),
-        @Index(name = "idx_users_email", columnList = "email", unique = true)
-}, uniqueConstraints = {
-        @UniqueConstraint(name = "uk_users_tenant_name", columnNames = {"customer_saas_id", "name"})
+        @Index(name = "idx_users_customer_saas_id", columnList = "customer_saas_id")
+        // Unicidade de email e (customer_saas_id, name) é garantida via índice parcial
+        // (deleted_at IS NULL) na migration V3 — permite reuso após soft-delete.
 })
 @FilterDef(name = "tenantFilter", parameters = @ParamDef(name = "tenantId", type = UUID.class))
 @Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
+@SQLDelete(sql = "UPDATE users SET deleted_at = NOW() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,7 +35,7 @@ public class User extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 200)
+    @Column(nullable = false, length = 200)
     private String email;
 
     @Column(nullable = false, length = 150)
@@ -54,4 +57,7 @@ public class User extends BaseEntity {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Order> orders = new ArrayList<>();
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }

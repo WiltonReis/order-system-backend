@@ -40,6 +40,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query("SELECT o FROM Order o JOIN FETCH o.user LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.id = :id")
     Optional<Order> findByIdWithDetails(@Param("id") UUID id);
 
+    // Soft-delete: bypass do @SQLRestriction para fluxos de restore/auditoria.
+    @Query(value = "SELECT * FROM orders WHERE id = :id", nativeQuery = true)
+    Optional<Order> findByIdIncludingDeleted(@Param("id") UUID id);
+
     // MT-21: próximo código de pedido por tenant (MAX+1); SERIALIZABLE na camada de serviço garante atomicidade
     @Query(value = "SELECT COALESCE(MAX(CAST(order_code AS BIGINT)), 0) + 1 FROM orders WHERE customer_saas_id = :tenantId", nativeQuery = true)
     Long getNextOrderCodeForTenant(@Param("tenantId") UUID tenantId);

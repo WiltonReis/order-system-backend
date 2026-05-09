@@ -5,8 +5,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.Filter;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -14,6 +17,8 @@ import java.util.UUID;
         @Index(name = "idx_products_customer_saas_id", columnList = "customer_saas_id")
 })
 @Filter(name = "tenantFilter", condition = "customer_saas_id = :tenantId")
+@SQLDelete(sql = "UPDATE products SET deleted_at = NOW() WHERE id = ?")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -41,4 +46,7 @@ public class Product extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_saas_id", nullable = false)
     private CustomerSaas customerSaas;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }

@@ -13,4 +13,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     // MT: findById bypasses Hibernate @Filter; JPQL query respects the tenant session filter
     @Query("SELECT p FROM Product p WHERE p.id = :id")
     Optional<Product> findByIdFiltered(@Param("id") UUID id);
+
+    // Soft-delete: bypass do @SQLRestriction para fluxos de restore/auditoria.
+    @Query(value = "SELECT * FROM products WHERE id = :id", nativeQuery = true)
+    Optional<Product> findByIdIncludingDeleted(@Param("id") UUID id);
 }
