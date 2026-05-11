@@ -119,7 +119,7 @@ public class OrderService {
         }
 
         boolean isAdmin = authenticatedUserProvider.getPrincipal().getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_ADMIN_MASTER"));
 
         if (isAdmin && request.getDiscount() != null && request.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal subtotal = order.getItems().stream()

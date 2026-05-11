@@ -7,7 +7,10 @@
       "Bash(Select-Object -ExpandProperty FullName)",
       "PowerShell(head *)",
       "Bash(New-Item -Path \"C:\\\\Users\\\\Wilton\\\\Desktop\\\\Projetos\\\\order-system\\\\create_database.sql\" -ItemType File -Force)",
-      "Bash(Out-Null)"
+      "Bash(Out-Null)",
+      "Bash(./mvnw -q -Dtest=TenantIsolationIntegrationTest test)",
+      "Bash(docker rm *)",
+      "Bash(curl *)"
     ]
   }
 }
