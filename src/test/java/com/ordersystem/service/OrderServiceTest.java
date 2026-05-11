@@ -16,6 +16,7 @@ import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
+import com.ordersystem.repository.OrderStatusHistoryRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.AuthenticatedUserProvider;
@@ -67,6 +68,9 @@ class OrderServiceTest {
 
     @Mock
     private CustomerSaasRepository customerSaasRepository;
+
+    @Mock
+    private OrderStatusHistoryRepository statusHistoryRepository;
 
     @Spy
     private OrderValidator orderValidator = new OrderValidator();

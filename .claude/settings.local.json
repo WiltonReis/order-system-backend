@@ -10,7 +10,8 @@
       "Bash(Out-Null)",
       "Bash(./mvnw -q -Dtest=TenantIsolationIntegrationTest test)",
       "Bash(docker rm *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "PowerShell(mvn *)"
     ]
   }
 }
