@@ -27,16 +27,26 @@ public class DashboardService {
     private final OrderItemRepository orderItemRepository;
 
     @Transactional(readOnly = true)
-    public DashboardResponse getDashboard(String period) {
-        LocalDateTime from = resolveFrom(period);
+    public DashboardResponse getDashboard(String period, LocalDate startDate, LocalDate endDate) {
+        LocalDateTime from;
+        LocalDateTime to;
+
+        if (startDate != null && endDate != null) {
+            from = startDate.atStartOfDay();
+            to = endDate.atTime(23, 59, 59);
+        } else {
+            from = resolveFrom(period);
+            to = LocalDateTime.now();
+        }
+
         UUID tenantId = TenantContext.getOrThrow();
 
-        long totalOrders = orderRepository.countByCreatedAtFrom(from, tenantId);
-        long canceledOrders = orderRepository.countByStatusFrom(OrderStatus.CANCELED, from, tenantId);
-        long completedOrders = orderRepository.countByStatusFrom(OrderStatus.COMPLETED, from, tenantId);
+        long totalOrders = orderRepository.countByCreatedAtBetween(from, to, tenantId);
+        long canceledOrders = orderRepository.countByStatusBetween(OrderStatus.CANCELED, from, to, tenantId);
+        long completedOrders = orderRepository.countByStatusBetween(OrderStatus.COMPLETED, from, to, tenantId);
         long openOrders = totalOrders - canceledOrders - completedOrders;
 
-        BigDecimal revenue = orderRepository.sumTotalByStatusFrom(OrderStatus.COMPLETED, from, tenantId);
+        BigDecimal revenue = orderRepository.sumTotalByStatusBetween(OrderStatus.COMPLETED, from, to, tenantId);
         if (revenue == null) revenue = BigDecimal.ZERO;
 
         double cancelRate = totalOrders > 0
@@ -50,7 +60,7 @@ public class DashboardService {
                 ? revenue.divide(BigDecimal.valueOf(completedOrders), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        List<TopProductResponse> topProducts = orderItemRepository.findTopProductsByQuantity(from, tenantId)
+        List<TopProductResponse> topProducts = orderItemRepository.findTopProductsByQuantity(from, to, tenantId)
                 .stream()
                 .map(p -> new TopProductResponse(p.getProductName(), p.getTotalQuantity()))
                 .toList();
@@ -61,7 +71,7 @@ public class DashboardService {
                 "CANCELED", canceledOrders
         );
 
-        List<RevenueByDayResponse> revenueByDay = orderRepository.sumCompletedByDay(from, tenantId)
+        List<RevenueByDayResponse> revenueByDay = orderRepository.sumCompletedByDay(from, to, tenantId)
                 .stream()
                 .map(r -> new RevenueByDayResponse(
                         r.getDate(),

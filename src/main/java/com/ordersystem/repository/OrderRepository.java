@@ -49,21 +49,21 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     Long getNextOrderCodeForTenant(@Param("tenantId") UUID tenantId);
 
     // MT-23: filtragem explícita por tenant em queries de agregação (não depender só do @Filter)
-    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :from AND o.customerSaas.id = :tenantId")
-    long countByCreatedAtFrom(@Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :from AND o.createdAt <= :to AND o.customerSaas.id = :tenantId")
+    long countByCreatedAtBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("tenantId") UUID tenantId);
 
-    @Query("SELECT COUNT(o) FROM Order o WHERE o.status = :status AND o.createdAt >= :from AND o.customerSaas.id = :tenantId")
-    long countByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.status = :status AND o.createdAt >= :from AND o.createdAt <= :to AND o.customerSaas.id = :tenantId")
+    long countByStatusBetween(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("tenantId") UUID tenantId);
 
-    @Query("SELECT SUM(o.total) FROM Order o WHERE o.status = :status AND o.createdAt >= :from AND o.customerSaas.id = :tenantId")
-    BigDecimal sumTotalByStatusFrom(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
+    @Query("SELECT SUM(o.total) FROM Order o WHERE o.status = :status AND o.createdAt >= :from AND o.createdAt <= :to AND o.customerSaas.id = :tenantId")
+    BigDecimal sumTotalByStatusBetween(@Param("status") OrderStatus status, @Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("tenantId") UUID tenantId);
 
     @Query(value = """
             SELECT TO_CHAR(created_at, 'YYYY-MM-DD') AS date, SUM(total) AS revenue
             FROM orders
-            WHERE status = 'COMPLETED' AND created_at >= :from AND customer_saas_id = :tenantId
+            WHERE status = 'COMPLETED' AND created_at >= :from AND created_at <= :to AND customer_saas_id = :tenantId
             GROUP BY TO_CHAR(created_at, 'YYYY-MM-DD')
             ORDER BY TO_CHAR(created_at, 'YYYY-MM-DD')
             """, nativeQuery = true)
-    List<RevenueByDayProjection> sumCompletedByDay(@Param("from") LocalDateTime from, @Param("tenantId") UUID tenantId);
+    List<RevenueByDayProjection> sumCompletedByDay(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("tenantId") UUID tenantId);
 }
