@@ -4,6 +4,7 @@ import com.ordersystem.dto.response.DashboardResponse;
 import com.ordersystem.dto.response.RevenueByDayResponse;
 import com.ordersystem.dto.response.TopProductResponse;
 import com.ordersystem.enums.OrderStatus;
+import com.ordersystem.mapper.DashboardMapper;
 import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
 import com.ordersystem.security.TenantContext;
@@ -25,6 +26,7 @@ public class DashboardService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final DashboardMapper dashboardMapper;
 
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(String period, LocalDate startDate, LocalDate endDate) {
@@ -62,7 +64,7 @@ public class DashboardService {
 
         List<TopProductResponse> topProducts = orderItemRepository.findTopProductsByQuantity(from, to, tenantId)
                 .stream()
-                .map(p -> new TopProductResponse(p.getProductName(), p.getTotalQuantity()))
+                .map(dashboardMapper::toTopProductResponse)
                 .toList();
 
         Map<String, Long> ordersByStatus = Map.of(
@@ -73,10 +75,7 @@ public class DashboardService {
 
         List<RevenueByDayResponse> revenueByDay = orderRepository.sumCompletedByDay(from, to, tenantId)
                 .stream()
-                .map(r -> new RevenueByDayResponse(
-                        r.getDate(),
-                        r.getRevenue() != null ? r.getRevenue() : BigDecimal.ZERO
-                ))
+                .map(dashboardMapper::toRevenueByDayResponse)
                 .toList();
 
         return new DashboardResponse(totalOrders, revenue, cancelRate, averageTicket,

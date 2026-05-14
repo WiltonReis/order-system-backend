@@ -6,6 +6,7 @@ import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.ProductResponse;
 import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.mapper.ProductMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.security.AuthenticatedUserProvider;
@@ -38,6 +39,7 @@ public class ProductService {
     private final CustomerSaasRepository customerSaasRepository;
     private final StorageService storageService;
     private final AuthenticatedUserProvider authenticatedUserProvider;
+    private final ProductMapper productMapper;
 
     @Transactional
     @Caching(evict = {
@@ -55,21 +57,21 @@ public class ProductService {
         product.setCustomerSaas(customerSaasRepository.getReferenceById(TenantContext.getOrThrow()));
 
         Product saved = productRepository.save(product);
-        return toResponse(saved);
+        return productMapper.toProductResponse(saved);
     }
 
     @Cacheable(value = "products", key = "T(com.ordersystem.security.TenantContext).get().toString()")
     @Transactional(readOnly = true)
     public List<ProductResponse> findAll() {
         return productRepository.findAll().stream()
-                .map(this::toResponse)
+                .map(productMapper::toProductResponse)
                 .collect(Collectors.toList());
     }
 
     @Cacheable(value = "products-paged", key = "T(com.ordersystem.security.TenantContext).get().toString() + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     @Transactional(readOnly = true)
     public Page<ProductResponse> findAllPaged(Pageable pageable) {
-        return productRepository.findAll(pageable).map(this::toResponse);
+        return productRepository.findAll(pageable).map(productMapper::toProductResponse);
     }
 
     @Transactional
@@ -86,7 +88,7 @@ public class ProductService {
         product.setPrice(request.getPrice());
 
         Product saved = productRepository.save(product);
-        return toResponse(saved);
+        return productMapper.toProductResponse(saved);
     }
 
     @Transactional
@@ -99,7 +101,7 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         product.setPrice(price);
         Product saved = productRepository.save(product);
-        return toResponse(saved);
+        return productMapper.toProductResponse(saved);
     }
 
     @Transactional
@@ -136,7 +138,7 @@ public class ProductService {
         String imageUrl = storageService.upload(file, filename);
 
         product.setImageUrl(imageUrl);
-        return toResponse(productRepository.save(product));
+        return productMapper.toProductResponse(productRepository.save(product));
     }
 
     private String getExtension(String contentType) {
@@ -147,13 +149,4 @@ public class ProductService {
         };
     }
 
-    private ProductResponse toResponse(Product product) {
-        return new ProductResponse(
-                product.getId(),
-                product.getName(),
-                product.getDescription(),
-                product.getPrice(),
-                product.getImageUrl()
-        );
-    }
 }

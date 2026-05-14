@@ -9,6 +9,7 @@ import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.mapper.UserMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.TenantContext;
@@ -33,6 +34,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final CustomerSaasRepository customerSaasRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
 
     @Transactional
     public UserResponse create(UserRequest request) {
@@ -51,12 +53,12 @@ public class UserService {
         user.setCustomerSaas(tenant);
 
         User saved = userRepository.save(user);
-        return toResponse(saved);
+        return userMapper.toUserResponse(saved);
     }
 
     @Transactional(readOnly = true)
     public Page<UserResponse> findAll(Pageable pageable) {
-        return userRepository.findAll(pageable).map(this::toResponse);
+        return userRepository.findAll(pageable).map(userMapper::toUserResponse);
     }
 
     @Transactional
@@ -81,7 +83,7 @@ public class UserService {
         user.setRole(request.getRole());
 
         User saved = userRepository.save(user);
-        return toResponse(saved);
+        return userMapper.toUserResponse(saved);
     }
 
     @Transactional
@@ -96,7 +98,7 @@ public class UserService {
         user.setRole(role);
         user.setTokenRevokedBefore(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).plusSeconds(1));
         User saved = userRepository.save(user);
-        return toResponse(saved);
+        return userMapper.toUserResponse(saved);
     }
 
     @Transactional
@@ -112,7 +114,4 @@ public class UserService {
         return new MessageResponse("User deleted successfully");
     }
 
-    private UserResponse toResponse(User user) {
-        return new UserResponse(user.getId(), user.getEmail(), user.getName(), user.getRole());
-    }
 }

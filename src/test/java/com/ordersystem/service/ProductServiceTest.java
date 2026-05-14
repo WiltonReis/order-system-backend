@@ -6,12 +6,14 @@ import com.ordersystem.dto.response.MessageResponse;
 import com.ordersystem.dto.response.ProductResponse;
 import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.mapper.ProductMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.security.AuthenticatedUserProvider;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import org.junit.jupiter.api.AfterEach;
+import org.mapstruct.factory.Mappers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +50,9 @@ class ProductServiceTest {
 
     @Spy
     private AuthenticatedUserProvider authenticatedUserProvider = new AuthenticatedUserProvider();
+
+    @Spy
+    private ProductMapper productMapper = Mappers.getMapper(ProductMapper.class);
 
     @InjectMocks
     private ProductService productService;

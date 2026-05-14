@@ -9,15 +9,18 @@ import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.mapper.UserMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.TenantContext;
+import org.mapstruct.factory.Mappers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -47,6 +50,9 @@ class UserServiceTest {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Spy
+    private UserMapper userMapper = Mappers.getMapper(UserMapper.class);
 
     @InjectMocks
     private UserService userService;

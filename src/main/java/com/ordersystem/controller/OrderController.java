@@ -40,13 +40,11 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.create(request));
     }
 
-    // ESC-03: criação atômica — pedido completo (itens + desconto) em uma única transação
     @PostMapping("/full")
     public ResponseEntity<OrderDetailResponse> createFull(@Valid @RequestBody OrderFullRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createFull(request));
     }
 
-    // PERF-01 + PERF-02 + FUT-02: retorna pedidos completos paginados com filtros opcionais
     @GetMapping("/details")
     public ResponseEntity<Page<OrderDetailResponse>> findAllDetails(
             @RequestParam(defaultValue = "0") int page,
@@ -94,7 +92,6 @@ public class OrderController {
         return ResponseEntity.ok(orderService.findById(id));
     }
 
-    // ADMIN only — enforced via @PreAuthorize inside OrderService
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','ADMIN_MASTER')")
     public ResponseEntity<OrderUpdateResponse> applyDiscount(@PathVariable UUID id,

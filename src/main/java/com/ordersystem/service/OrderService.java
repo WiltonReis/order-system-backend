@@ -6,7 +6,6 @@ import com.ordersystem.dto.request.OrderItemRequest;
 import com.ordersystem.dto.request.OrderItemUpdateRequest;
 import com.ordersystem.dto.request.OrderRequest;
 import com.ordersystem.dto.request.OrderUpdateRequest;
-import com.ordersystem.specification.OrderSpecification;
 import com.ordersystem.dto.response.*;
 import com.ordersystem.entity.Order;
 import com.ordersystem.entity.OrderItem;
@@ -16,6 +15,7 @@ import com.ordersystem.entity.User;
 import com.ordersystem.enums.OrderStatus;
 import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
+import com.ordersystem.mapper.OrderMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.OrderItemRepository;
 import com.ordersystem.repository.OrderRepository;
@@ -25,6 +25,7 @@ import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.AuthenticatedUserProvider;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
+import com.ordersystem.specification.OrderSpecification;
 import com.ordersystem.validation.OrderValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -47,6 +48,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+
+
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -60,6 +63,7 @@ public class OrderService {
     private final OrderValidator orderValidator;
     private final AuthenticatedUserProvider authenticatedUserProvider;
     private final OrderPdfService orderPdfService;
+    private final OrderMapper orderMapper;
 
     // MT-21: MAX+1 por tenant dentro de transação SERIALIZABLE — sem race condition entre pedidos do mesmo tenant
     private String generateOrderCode(UUID tenantId) {
@@ -84,7 +88,7 @@ public class OrderService {
         }
 
         Order saved = orderRepository.save(order);
-        return toOrderResponse(saved);
+        return orderMapper.toOrderResponse(saved);
     }
 
     // ESC-03: cria pedido completo (itens + desconto) em transação única — sem risco de estado parcial
@@ -132,7 +136,7 @@ public class OrderService {
         order.recalculateTotal();
 
         Order saved = orderRepository.save(order);
-        return toOrderDetailResponse(saved);
+        return orderMapper.toOrderDetailResponse(saved);
     }
 
     // PERF-01: busca todos os pedidos com itens em duas queries, sem N+1
@@ -150,7 +154,7 @@ public class OrderService {
         List<OrderDetailResponse> content = ids.stream()
                 .map(orderMap::get)
                 .filter(Objects::nonNull)
-                .map(this::toOrderDetailResponse)
+                .map(orderMapper::toOrderDetailResponse)
                 .collect(Collectors.toList());
         return new PageImpl<>(content, pageable, idsPage.getTotalElements());
     }
@@ -174,7 +178,7 @@ public class OrderService {
         List<OrderDetailResponse> content = ids.stream()
                 .map(detailMap::get)
                 .filter(Objects::nonNull)
-                .map(this::toOrderDetailResponse)
+                .map(orderMapper::toOrderDetailResponse)
                 .collect(Collectors.toList());
 
         return new PageImpl<>(content, pageable, ordersPage.getTotalElements());
@@ -194,27 +198,27 @@ public class OrderService {
     @Transactional(readOnly = true)
     public Page<OrderListResponse> findAll(Pageable pageable) {
         return orderRepository.findAllWithUsersPaged(pageable)
-                .map(this::toOrderListResponse);
+                .map(orderMapper::toOrderListResponse);
     }
 
     @Transactional(readOnly = true)
     public Page<OrderListResponse> findActive(Pageable pageable) {
         return orderRepository.findAllWithUsersByStatusPaged(OrderStatus.OPEN, pageable)
-                .map(this::toOrderListResponse);
+                .map(orderMapper::toOrderListResponse);
     }
 
     @Transactional(readOnly = true)
     public Page<OrderListResponse> findHistory(Pageable pageable) {
         return orderRepository.findAllWithUsersByStatusInPaged(
                 List.of(OrderStatus.COMPLETED, OrderStatus.CANCELED), pageable)
-                .map(this::toOrderListResponse);
+                .map(orderMapper::toOrderListResponse);
     }
 
     @Transactional(readOnly = true)
     public OrderDetailResponse findById(UUID id) {
         Order order = orderRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", id));
-        return toOrderDetailResponse(order);
+        return orderMapper.toOrderDetailResponse(order);
     }
 
     @Transactional(readOnly = true)
@@ -239,7 +243,7 @@ public class OrderService {
         order.recalculateTotal();
 
         Order saved = orderRepository.save(order);
-        return new OrderUpdateResponse(saved.getId(), saved.getTotal(), saved.getDiscount());
+        return orderMapper.toOrderUpdateResponse(saved);
     }
 
     @Transactional
@@ -257,7 +261,7 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         recordStatusChange(saved, oldStatus, OrderStatus.COMPLETED, principal);
-        return toOrderResponse(saved);
+        return orderMapper.toOrderResponse(saved);
     }
 
     @Transactional
@@ -275,7 +279,7 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         recordStatusChange(saved, oldStatus, OrderStatus.CANCELED, principal);
-        return toOrderResponse(saved);
+        return orderMapper.toOrderResponse(saved);
     }
 
     // [22] Histórico de status — escrita explícita no service em vez de @EntityListener.
@@ -300,13 +304,7 @@ public class OrderService {
             throw new ResourceNotFoundException("Order", orderId);
         }
         return statusHistoryRepository.findByOrderIdOrderByChangedAtDesc(orderId).stream()
-                .map(h -> new OrderStatusHistoryResponse(
-                        h.getId(),
-                        h.getFromStatus(),
-                        h.getToStatus(),
-                        h.getChangedAt(),
-                        h.getChangedBy()
-                ))
+                .map(orderMapper::toOrderStatusHistoryResponse)
                 .toList();
     }
 
@@ -367,13 +365,7 @@ public class OrderService {
         order.recalculateTotal();
         orderRepository.save(order);
 
-        return new OrderItemResponse(
-                item.getId(),
-                product.getId(),
-                product.getName(),
-                item.getQuantity(),
-                item.getPrice()
-        );
+        return orderMapper.toOrderItemResponse(item);
     }
 
     @Transactional
@@ -392,7 +384,7 @@ public class OrderService {
         order.recalculateTotal();
         orderRepository.save(order);
 
-        return new OrderItemUpdateResponse(item.getId(), item.getQuantity(), item.getPrice());
+        return orderMapper.toOrderItemUpdateResponse(item);
     }
 
     @Transactional
@@ -412,72 +404,4 @@ public class OrderService {
         return new MessageResponse("Item removed");
     }
 
-    private OrderResponse toOrderResponse(Order order) {
-        return new OrderResponse(
-                order.getId(),
-                order.getOrderCode(),
-                order.getStatus(),
-                order.getCreatedAt(),
-                order.getTotal(),
-                order.getDiscount(),
-                order.getCustomerName(),
-                order.getCompletedAt(),
-                order.getCanceledAt(),
-                order.getCompletedByName(),
-                order.getCanceledByName()
-        );
-    }
-
-    private OrderListResponse toOrderListResponse(Order order) {
-        UserSummaryResponse userSummary = new UserSummaryResponse(
-                order.getUser().getId(),
-                order.getUser().getName()
-        );
-        return new OrderListResponse(
-                order.getId(),
-                order.getOrderCode(),
-                order.getStatus(),
-                order.getTotal(),
-                order.getCreatedAt(),
-                order.getCustomerName(),
-                order.getCompletedAt(),
-                order.getCanceledAt(),
-                order.getCompletedByName(),
-                order.getCanceledByName(),
-                userSummary
-        );
-    }
-
-    private OrderDetailResponse toOrderDetailResponse(Order order) {
-        UserSummaryResponse userSummary = new UserSummaryResponse(
-                order.getUser().getId(),
-                order.getUser().getName()
-        );
-
-        List<OrderItemResponse> items = order.getItems().stream()
-                .map(item -> new OrderItemResponse(
-                        item.getId(),
-                        item.getProduct().getId(),
-                        item.getProduct().getName(),
-                        item.getQuantity(),
-                        item.getPrice()
-                ))
-                .collect(Collectors.toList());
-
-        return new OrderDetailResponse(
-                order.getId(),
-                order.getOrderCode(),
-                order.getStatus(),
-                order.getCreatedAt(),
-                order.getTotal(),
-                order.getDiscount(),
-                order.getCustomerName(),
-                order.getCompletedAt(),
-                order.getCanceledAt(),
-                order.getCompletedByName(),
-                order.getCanceledByName(),
-                userSummary,
-                items
-        );
-    }
 }

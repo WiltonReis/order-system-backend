@@ -8,6 +8,7 @@ import com.ordersystem.entity.CustomerSaas;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
 import com.ordersystem.exception.BusinessException;
+import com.ordersystem.mapper.AuthMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.JwtTokenProvider;
@@ -30,6 +31,7 @@ public class AuthService {
     private final CustomerSaasRepository customerSaasRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthMapper authMapper;
 
     public record LoginResult(AuthResponse authResponse, String refreshToken) {}
 
@@ -91,6 +93,6 @@ public class AuthService {
         user.setCustomerSaas(tenant);
         user = userRepository.save(user);
 
-        return new RegisterResponse(user.getId(), user.getEmail(), user.getName(), tenant.getId());
+        return authMapper.toRegisterResponse(user, tenant);
     }
 }

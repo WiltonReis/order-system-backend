@@ -19,10 +19,12 @@ import com.ordersystem.repository.OrderRepository;
 import com.ordersystem.repository.OrderStatusHistoryRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.repository.UserRepository;
+import com.ordersystem.mapper.OrderMapper;
 import com.ordersystem.security.AuthenticatedUserProvider;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import com.ordersystem.validation.OrderValidator;
+import org.mapstruct.factory.Mappers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,6 +79,9 @@ class OrderServiceTest {
 
     @Spy
     private AuthenticatedUserProvider authenticatedUserProvider = new AuthenticatedUserProvider();
+
+    @Spy
+    private OrderMapper orderMapper = Mappers.getMapper(OrderMapper.class);
 
     @InjectMocks
     private OrderService orderService;
