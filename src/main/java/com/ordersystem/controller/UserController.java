@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +34,7 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Criar usuário", description = "Cria novo usuário no tenant autenticado. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Usuário criado"),
@@ -46,6 +48,7 @@ public class UserController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Listar usuários", description = "Lista paginada de usuários do tenant. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lista retornada"),
@@ -58,6 +61,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Atualizar usuário", description = "Atualiza dados do usuário. Não permitido para ADMIN_MASTER. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usuário atualizado"),
@@ -74,6 +78,7 @@ public class UserController {
     }
 
     @PatchMapping("/{id}/role")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Atualizar papel do usuário", description = "Altera o role e invalida tokens existentes. Não permitido para ADMIN_MASTER. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Role atualizado"),
@@ -89,6 +94,7 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Excluir usuário", description = "Soft-delete. Não permitido para ADMIN_MASTER. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usuário excluído"),

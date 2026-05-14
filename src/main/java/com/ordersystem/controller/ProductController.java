@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +36,7 @@ public class ProductController {
     private final ProductService productService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Criar produto", description = "Cria novo produto no catálogo do tenant. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Produto criado"),
@@ -62,6 +64,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Atualizar produto", description = "Atualiza nome, descrição e preço. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Produto atualizado"),
@@ -76,6 +79,7 @@ public class ProductController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Atualizar preço do produto", description = "Atualiza somente o preço. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Preço atualizado"),
@@ -90,6 +94,7 @@ public class ProductController {
     }
 
     @PostMapping("/{id}/image")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Upload de imagem do produto", description = "Aceita JPG, PNG ou WEBP. Tamanho máximo: 5 MB. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Imagem enviada"),
@@ -104,6 +109,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ADMIN_MASTER')")
     @Operation(summary = "Excluir produto", description = "Soft-delete. Restrito a ADMIN.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Produto excluído"),
