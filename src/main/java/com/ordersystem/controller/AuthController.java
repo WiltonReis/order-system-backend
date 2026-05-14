@@ -7,13 +7,17 @@ import com.ordersystem.dto.request.RegisterRequest;
 import com.ordersystem.dto.response.AuthResponse;
 import com.ordersystem.dto.response.RegisterResponse;
 import com.ordersystem.exception.TooManyRequestsException;
-import org.springframework.http.HttpStatus;
 import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserDetailsServiceImpl;
 import com.ordersystem.service.AuthService;
 import com.ordersystem.service.LoginRateLimiterService;
 import com.ordersystem.service.RefreshTokenService;
 import com.ordersystem.service.TokenBlacklistService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,6 +25,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -36,6 +41,7 @@ import java.time.Duration;
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
+@Tag(name = "Autenticação", description = "Registro, login, refresh e logout de sessão")
 public class AuthController {
 
     private static final String ACCESS_COOKIE = "oms.token";
@@ -51,6 +57,13 @@ public class AuthController {
     private final CookieProperties cookieProperties;
 
     @PostMapping("/login")
+    @Operation(summary = "Login", description = "Autentica usuário e define cookies httpOnly com access e refresh token.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Autenticado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Credenciais incorretas", content = @Content),
+            @ApiResponse(responseCode = "429", description = "Muitas tentativas — aguarde 15 min", content = @Content)
+    })
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request,
                                               HttpServletRequest httpRequest,
                                               HttpServletResponse response) {
@@ -75,6 +88,13 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @Operation(summary = "Registro de tenant", description = "Cria novo tenant SaaS e usuário ADMIN_MASTER associado.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Tenant criado com sucesso"),
+            @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content),
+            @ApiResponse(responseCode = "409", description = "E-mail ou CPF/CNPJ já cadastrado", content = @Content),
+            @ApiResponse(responseCode = "429", description = "Muitas tentativas — aguarde 15 min", content = @Content)
+    })
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,
                                                      HttpServletRequest httpRequest) {
         String clientIp = getClientIp(httpRequest);
@@ -86,6 +106,12 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
+    @Operation(summary = "Renovar access token", description = "Gera novo access token a partir do refresh token (cookie oms.refresh).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token renovado"),
+            @ApiResponse(responseCode = "401", description = "Refresh token ausente ou inválido", content = @Content),
+            @ApiResponse(responseCode = "429", description = "Muitas tentativas", content = @Content)
+    })
     public ResponseEntity<Void> refresh(HttpServletRequest request, HttpServletResponse response) {
         String clientIp = getClientIp(request);
         if (!loginRateLimiterService.isAllowed(clientIp)) {
@@ -107,6 +133,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
+    @Operation(summary = "Logout", description = "Revoga tokens e limpa cookies de sessão.")
+    @ApiResponse(responseCode = "200", description = "Logout realizado")
     public ResponseEntity<Void> logout(HttpServletRequest request, HttpServletResponse response) {
         String accessToken = extractCookieValue(request, ACCESS_COOKIE);
         if (accessToken == null) {
