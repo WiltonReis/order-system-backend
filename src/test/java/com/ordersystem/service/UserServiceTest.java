@@ -7,12 +7,14 @@ import com.ordersystem.dto.response.UserResponse;
 import com.ordersystem.entity.CustomerSaas;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
-import com.ordersystem.exception.BusinessException;
+import com.ordersystem.exception.ConflictException;
+import com.ordersystem.exception.ForbiddenOperationException;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.mapper.UserMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.TenantContext;
+import com.ordersystem.validation.UserValidator;
 import org.mapstruct.factory.Mappers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +56,9 @@ class UserServiceTest {
     @Spy
     private UserMapper userMapper = Mappers.getMapper(UserMapper.class);
 
+    @Mock
+    private UserValidator userValidator;
+
     @InjectMocks
     private UserService userService;
 
@@ -88,7 +93,6 @@ class UserServiceTest {
         request.setPassword("secret");
         request.setRole(Role.USER);
 
-        when(userRepository.existsByEmailGlobal("alice@test.local")).thenReturn(false);
         when(customerSaasRepository.getReferenceById(TENANT_ID)).thenReturn(new CustomerSaas());
         when(passwordEncoder.encode("secret")).thenReturn("encoded-secret");
         when(userRepository.save(any(User.class))).thenReturn(buildUser(id, "alice@test.local", "Alice", Role.USER));
@@ -109,11 +113,11 @@ class UserServiceTest {
         request.setName("Alice");
         request.setPassword("secret");
         request.setRole(Role.USER);
-        when(userRepository.existsByEmailGlobal("alice@test.local")).thenReturn(true);
+        doThrow(new ConflictException("E-mail já cadastrado"))
+                .when(userValidator).validateEmailNotTaken("alice@test.local");
 
         assertThatThrownBy(() -> userService.create(request))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("alice@test.local");
+                .isInstanceOf(ConflictException.class);
         verify(userRepository, never()).save(any());
         verifyNoInteractions(passwordEncoder);
     }
@@ -126,7 +130,6 @@ class UserServiceTest {
         request.setPassword("plaintext");
         request.setRole(Role.ADMIN);
 
-        when(userRepository.existsByEmailGlobal("bob@test.local")).thenReturn(false);
         when(customerSaasRepository.getReferenceById(TENANT_ID)).thenReturn(new CustomerSaas());
         when(passwordEncoder.encode("plaintext")).thenReturn("hashed");
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -232,11 +235,11 @@ class UserServiceTest {
         request.setRole(Role.USER);
 
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
-        when(userRepository.existsByEmailGlobal("bob@test.local")).thenReturn(true);
+        doThrow(new ConflictException("E-mail já cadastrado"))
+                .when(userValidator).validateEmailNotTakenByAnother("alice@test.local", "bob@test.local");
 
         assertThatThrownBy(() -> userService.update(id, request))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("bob@test.local");
+                .isInstanceOf(ConflictException.class);
         verify(userRepository, never()).save(any());
     }
 
@@ -280,9 +283,11 @@ class UserServiceTest {
         request.setRole(Role.ADMIN);
 
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
+        doThrow(new ForbiddenOperationException("Administrador master não pode ser modificado"))
+                .when(userValidator).validateNotAdminMaster(Role.ADMIN_MASTER);
 
         assertThatThrownBy(() -> userService.update(id, request))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(ForbiddenOperationException.class);
         verify(userRepository, never()).save(any());
     }
 
@@ -327,9 +332,11 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
         when(userRepository.findById(id)).thenReturn(Optional.of(existing));
+        doThrow(new ForbiddenOperationException("Administrador master não pode ser modificado"))
+                .when(userValidator).validateNotAdminMaster(Role.ADMIN_MASTER);
 
         assertThatThrownBy(() -> userService.updateRole(id, Role.USER))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(ForbiddenOperationException.class);
         verify(userRepository, never()).save(any());
     }
 
@@ -362,9 +369,11 @@ class UserServiceTest {
         UUID id = UUID.randomUUID();
         User master = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
         when(userRepository.findById(id)).thenReturn(Optional.of(master));
+        doThrow(new ForbiddenOperationException("Administrador master não pode ser modificado"))
+                .when(userValidator).validateNotAdminMaster(Role.ADMIN_MASTER);
 
         assertThatThrownBy(() -> userService.delete(id))
-                .isInstanceOf(BusinessException.class);
+                .isInstanceOf(ForbiddenOperationException.class);
         verify(userRepository, never()).delete(any(User.class));
     }
 

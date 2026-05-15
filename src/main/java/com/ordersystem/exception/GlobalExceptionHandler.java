@@ -31,7 +31,28 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ProblemDetail handleBusiness(BusinessException ex) {
-        return problem(HttpStatus.BAD_REQUEST, "Regra de negócio violada", ex.getMessage());
+        return problem(HttpStatus.BAD_REQUEST, "Requisição inválida", ex.getMessage());
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ProblemDetail handleConflict(ConflictException ex) {
+        return problem(HttpStatus.CONFLICT, "Conflito de dados", ex.getMessage());
+    }
+
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ProblemDetail handleForbiddenOperation(ForbiddenOperationException ex) {
+        return problem(HttpStatus.FORBIDDEN, "Operação não permitida", ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ProblemDetail handleInvalidFile(InvalidFileException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Arquivo inválido", ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
+        log.warn("Argumento inválido: {}", ex.getMessage());
+        return problem(HttpStatus.BAD_REQUEST, "Requisição inválida", "Parâmetro inválido na requisição");
     }
 
     @ExceptionHandler(AccessDeniedException.class)

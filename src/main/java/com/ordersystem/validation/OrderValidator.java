@@ -18,29 +18,30 @@ public class OrderValidator {
         Set<UUID> seen = new HashSet<>();
         for (OrderItemRequest item : items) {
             if (!seen.add(item.getProductId())) {
-                throw new BusinessException("Order cannot have duplicate products");
+                throw new BusinessException("O pedido não pode ter produtos duplicados");
             }
         }
     }
 
     public void validateDiscountNotExceedsSubtotal(BigDecimal discount, BigDecimal subtotal) {
         if (discount.compareTo(subtotal) >= 0) {
-            throw new BusinessException("Discount cannot be equal to or greater than order subtotal");
+            throw new BusinessException("O desconto não pode ser maior ou igual ao subtotal do pedido");
         }
     }
 
     public void validateStatusTransition(OrderStatus current, OrderStatus target) {
         if (current == target) {
-            throw new BusinessException("Order is already " + target.name().toLowerCase());
+            String label = target == OrderStatus.COMPLETED ? "finalizado" : "cancelado";
+            throw new BusinessException("O pedido já foi " + label);
         }
         if (current != OrderStatus.OPEN) {
-            throw new BusinessException("Only OPEN orders can be transitioned");
+            throw new BusinessException("Somente pedidos abertos podem ter o status alterado");
         }
     }
 
     public void validateOrderIsOpen(OrderStatus status) {
         if (status != OrderStatus.OPEN) {
-            throw new BusinessException("Operation can only be applied to OPEN orders");
+            throw new BusinessException("Esta operação só pode ser aplicada a pedidos abertos");
         }
     }
 }

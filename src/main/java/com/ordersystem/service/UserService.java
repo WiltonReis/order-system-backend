@@ -7,12 +7,12 @@ import com.ordersystem.dto.response.UserResponse;
 import com.ordersystem.entity.CustomerSaas;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
-import com.ordersystem.exception.BusinessException;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.mapper.UserMapper;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.TenantContext;
+import com.ordersystem.validation.UserValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,18 +29,15 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserService {
 
-    private static final String ADMIN_MASTER_BLOCK_MESSAGE = "Administrador master não pode ser modificado";
-
     private final UserRepository userRepository;
     private final CustomerSaasRepository customerSaasRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
+    private final UserValidator userValidator;
 
     @Transactional
     public UserResponse create(UserRequest request) {
-        if (userRepository.existsByEmailGlobal(request.getEmail())) {
-            throw new BusinessException("E-mail já cadastrado: " + request.getEmail());
-        }
+        userValidator.validateEmailNotTaken(request.getEmail());
 
         UUID tenantId = TenantContext.getOrThrow();
         CustomerSaas tenant = customerSaasRepository.getReferenceById(tenantId);
@@ -66,14 +63,8 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
-        if (user.getRole() == Role.ADMIN_MASTER) {
-            throw new BusinessException(ADMIN_MASTER_BLOCK_MESSAGE);
-        }
-
-        if (!user.getEmail().equals(request.getEmail())
-                && userRepository.existsByEmailGlobal(request.getEmail())) {
-            throw new BusinessException("E-mail já cadastrado: " + request.getEmail());
-        }
+        userValidator.validateNotAdminMaster(user.getRole());
+        userValidator.validateEmailNotTakenByAnother(user.getEmail(), request.getEmail());
 
         user.setEmail(request.getEmail());
         user.setName(request.getName());
@@ -91,9 +82,7 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
-        if (user.getRole() == Role.ADMIN_MASTER) {
-            throw new BusinessException(ADMIN_MASTER_BLOCK_MESSAGE);
-        }
+        userValidator.validateNotAdminMaster(user.getRole());
 
         user.setRole(role);
         user.setTokenRevokedBefore(LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).plusSeconds(1));
@@ -106,12 +95,9 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User", id));
 
-        if (user.getRole() == Role.ADMIN_MASTER) {
-            throw new BusinessException(ADMIN_MASTER_BLOCK_MESSAGE);
-        }
+        userValidator.validateNotAdminMaster(user.getRole());
 
         userRepository.delete(user);
         return new MessageResponse("User deleted successfully");
     }
-
 }

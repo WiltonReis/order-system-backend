@@ -7,8 +7,8 @@ import com.ordersystem.dto.response.RegisterResponse;
 import com.ordersystem.entity.CustomerSaas;
 import com.ordersystem.entity.User;
 import com.ordersystem.enums.Role;
-import com.ordersystem.exception.BusinessException;
 import com.ordersystem.mapper.AuthMapper;
+import com.ordersystem.validation.AuthValidator;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.JwtTokenProvider;
@@ -32,6 +32,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthMapper authMapper;
+    private final AuthValidator authValidator;
 
     public record LoginResult(AuthResponse authResponse, String refreshToken) {}
 
@@ -67,17 +68,9 @@ public class AuthService {
                 ? null
                 : request.getCpfCnpj().replaceAll("\\D", "");
 
-        if (normalizedCpfCnpj == null || normalizedCpfCnpj.isBlank()) {
-            throw new BusinessException("CPF/CNPJ é obrigatório.");
-        }
-
-        if (userRepository.existsByEmailGlobal(request.getEmail())) {
-            throw new BusinessException("E-mail já cadastrado.");
-        }
-
-        if (customerSaasRepository.existsByCpfCnpj(normalizedCpfCnpj)) {
-            throw new BusinessException("CPF/CNPJ já cadastrado.");
-        }
+        authValidator.validateCpfCnpjNotBlank(normalizedCpfCnpj);
+        authValidator.validateEmailNotRegistered(request.getEmail());
+        authValidator.validateCpfCnpjNotRegistered(normalizedCpfCnpj);
 
         CustomerSaas tenant = new CustomerSaas();
         tenant.setCompanyName(request.getCompanyName());

@@ -7,6 +7,7 @@ import com.ordersystem.dto.response.ProductResponse;
 import com.ordersystem.entity.Product;
 import com.ordersystem.exception.ResourceNotFoundException;
 import com.ordersystem.mapper.ProductMapper;
+import com.ordersystem.validation.ProductValidator;
 import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.ProductRepository;
 import com.ordersystem.security.AuthenticatedUserProvider;
@@ -24,7 +25,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -32,14 +32,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProductService {
 
-    private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
-    private static final long MAX_SIZE = 5 * 1024 * 1024;
-
     private final ProductRepository productRepository;
     private final CustomerSaasRepository customerSaasRepository;
     private final StorageService storageService;
     private final AuthenticatedUserProvider authenticatedUserProvider;
     private final ProductMapper productMapper;
+    private final ProductValidator productValidator;
 
     @Transactional
     @Caching(evict = {
@@ -122,11 +120,7 @@ public class ProductService {
             @CacheEvict(value = "products-paged", allEntries = true)
     })
     public ProductResponse uploadImage(UUID id, MultipartFile file) {
-        if (file.isEmpty()) throw new IllegalArgumentException("Arquivo vazio");
-        if (!ALLOWED_TYPES.contains(file.getContentType()))
-            throw new IllegalArgumentException("Tipo não permitido. Use JPG, PNG ou WEBP");
-        if (file.getSize() > MAX_SIZE)
-            throw new IllegalArgumentException("Arquivo excede 5MB");
+        productValidator.validateImageFile(file);
 
         Product product = productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));

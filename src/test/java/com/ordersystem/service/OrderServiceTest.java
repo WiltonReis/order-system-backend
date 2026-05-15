@@ -443,7 +443,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.applyDiscount(order.getId(), request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("OPEN");
+                .hasMessageContaining("abertos");
     }
 
     @Test
@@ -519,7 +519,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.completeOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("already completed");
+                .hasMessageContaining("finalizado");
     }
 
     @Test
@@ -533,7 +533,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.completeOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("OPEN");
+                .hasMessageContaining("abertos");
     }
 
     @Test
@@ -592,7 +592,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.cancelOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("already canceled");
+                .hasMessageContaining("cancelado");
     }
 
     @Test
@@ -606,7 +606,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.cancelOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("OPEN");
+                .hasMessageContaining("abertos");
     }
 
     @Test
@@ -731,7 +731,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.addItem(order.getId(), request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("OPEN");
+                .hasMessageContaining("abertos");
     }
 
     @Test
@@ -848,7 +848,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.updateItem(order.getId(), itemId, request))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("OPEN");
+                .hasMessageContaining("abertos");
     }
 
     @Test
@@ -925,7 +925,7 @@ class OrderServiceTest {
         // When / Then
         assertThatThrownBy(() -> orderService.removeItem(order.getId(), itemId))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("OPEN");
+                .hasMessageContaining("abertos");
     }
 
     @Test
