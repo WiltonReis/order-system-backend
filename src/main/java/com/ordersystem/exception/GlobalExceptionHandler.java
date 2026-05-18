@@ -52,12 +52,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException ex) {
         log.warn("Argumento inválido: {}", ex.getMessage());
-        return problem(HttpStatus.BAD_REQUEST, "Requisição inválida", "Parâmetro inválido na requisição");
+        return problem(HttpStatus.BAD_REQUEST, "Requisição inválida",
+                "Algum dos dados enviados está inválido. Verifique e tente novamente.");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
-        return problem(HttpStatus.FORBIDDEN, "Acesso negado", "Acesso negado");
+        return problem(HttpStatus.FORBIDDEN, "Acesso negado",
+                "Você não tem permissão para executar esta ação.");
     }
 
     @ExceptionHandler(BadCredentialsException.class)
@@ -91,32 +93,36 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ProblemDetail handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        String detail = "Parâmetro '" + ex.getName() + "' tem valor inválido";
-        return problem(HttpStatus.BAD_REQUEST, "Parâmetro inválido", detail);
+        log.warn("Tipo de parâmetro inválido em '{}': {}", ex.getName(), ex.getMessage());
+        return problem(HttpStatus.BAD_REQUEST, "Parâmetro inválido",
+                "Um dos campos enviados está com formato inválido. Verifique e tente novamente.");
     }
 
     @ExceptionHandler(DateTimeParseException.class)
     public ProblemDetail handleDateTimeParse(DateTimeParseException ex) {
-        return problem(HttpStatus.BAD_REQUEST, "Data inválida", "Formato de data inválido");
+        return problem(HttpStatus.BAD_REQUEST, "Data inválida",
+                "A data informada está em formato inválido.");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
         log.warn("Violação de integridade de dados: {}", ex.getMostSpecificCause().getMessage());
-        return problem(HttpStatus.CONFLICT, "Conflito de dados", "Operação viola integridade de dados");
+        return problem(HttpStatus.CONFLICT, "Conflito de dados",
+                "Não foi possível concluir a operação por conflito com dados já existentes.");
     }
 
     @ExceptionHandler(MultipartException.class)
     public ProblemDetail handleMultipart(MultipartException ex) {
         log.warn("Erro em upload multipart: {}", ex.getMessage());
         return problem(HttpStatus.PAYLOAD_TOO_LARGE, "Upload inválido",
-                "Arquivo excede o tamanho permitido ou está corrompido");
+                "O arquivo enviado está muito grande ou corrompido. Envie um arquivo menor ou em outro formato.");
     }
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex) {
         log.error("Exceção não tratada: {}", ex.getMessage(), ex);
-        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno", "Ocorreu um erro inesperado");
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno",
+                "Ocorreu um problema inesperado. Tente novamente em instantes.");
     }
 
     private ProblemDetail problem(HttpStatus status, String title, String detail) {
