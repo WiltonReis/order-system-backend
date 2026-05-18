@@ -130,6 +130,12 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Observabilidade: exporta métricas no formato Prometheus -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- MT-06: AOP for tenant filter aspect -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
