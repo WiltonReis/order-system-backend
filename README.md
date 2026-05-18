@@ -120,7 +120,7 @@ src/main/java/com/ordersystem/
 ├── repository/     # Spring Data JPA + queries nativas para soft-delete
 ├── security/       # JwtTokenProvider, JwtAuthenticationFilter, TenantContext
 ├── service/        # Lógica de negócio + OrderPdfService
-└── validation/     # @CpfCnpj (caelum-stella), OrderValidator, ProductValidator
+└── validation/     # @CpfCnpj (caelum-stella), OrderValidator, UserValidator, AuthValidator, ProductValidator
 ```
 
 ---
