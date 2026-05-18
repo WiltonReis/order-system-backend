@@ -22,13 +22,13 @@ public class AuthValidator {
 
     public void validateEmailNotRegistered(String email) {
         if (userRepository.existsByEmailGlobal(email)) {
-            throw new ConflictException("E-mail já cadastrado");
+            throw new ConflictException("email", "E-mail já cadastrado");
         }
     }
 
     public void validateCpfCnpjNotRegistered(String normalizedCpfCnpj) {
         if (customerSaasRepository.existsByCpfCnpj(normalizedCpfCnpj)) {
-            throw new ConflictException("CPF/CNPJ já cadastrado");
+            throw new ConflictException("cpfCnpj", "CPF/CNPJ já cadastrado");
         }
     }
 }

@@ -15,13 +15,13 @@ public class UserValidator {
 
     public void validateEmailNotTaken(String email) {
         if (userRepository.existsByEmailGlobal(email)) {
-            throw new ConflictException("E-mail já cadastrado");
+            throw new ConflictException("email", "E-mail já cadastrado");
         }
     }
 
     public void validateEmailNotTakenByAnother(String currentEmail, String newEmail) {
         if (!currentEmail.equals(newEmail) && userRepository.existsByEmailGlobal(newEmail)) {
-            throw new ConflictException("E-mail já cadastrado");
+            throw new ConflictException("email", "E-mail já cadastrado");
         }
     }
 

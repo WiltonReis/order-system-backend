@@ -36,7 +36,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConflictException.class)
     public ProblemDetail handleConflict(ConflictException ex) {
-        return problem(HttpStatus.CONFLICT, "Conflito de dados", ex.getMessage());
+        ProblemDetail pd = problem(HttpStatus.CONFLICT, "Conflito de dados", ex.getMessage());
+        if (ex.getField() != null) {
+            pd.setProperty("errors", Map.of(ex.getField(), ex.getMessage()));
+        }
+        return pd;
     }
 
     @ExceptionHandler(ForbiddenOperationException.class)
@@ -62,14 +66,21 @@ public class GlobalExceptionHandler {
                 "Você não tem permissão para executar esta ação.");
     }
 
-    @ExceptionHandler(BadCredentialsException.class)
-    public ProblemDetail handleBadCredentials(BadCredentialsException ex) {
-        return problem(HttpStatus.UNAUTHORIZED, "Credenciais inválidas", "Usuário ou senha inválidos");
-    }
-
+    // hideUserNotFoundExceptions=false permite diferenciar email errado de senha errada (deliberado)
     @ExceptionHandler(UsernameNotFoundException.class)
     public ProblemDetail handleUsernameNotFound(UsernameNotFoundException ex) {
-        return problem(HttpStatus.UNAUTHORIZED, "Credenciais inválidas", "Usuário ou senha inválidos");
+        ProblemDetail pd = problem(HttpStatus.UNAUTHORIZED, "Credenciais inválidas",
+                "Usuário não encontrado. Verifique o e-mail e tente novamente.");
+        pd.setProperty("errors", Map.of("email", "Usuário não encontrado"));
+        return pd;
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ProblemDetail handleBadCredentials(BadCredentialsException ex) {
+        ProblemDetail pd = problem(HttpStatus.UNAUTHORIZED, "Credenciais inválidas",
+                "Senha incorreta. Verifique sua senha e tente novamente.");
+        pd.setProperty("errors", Map.of("password", "Senha incorreta"));
+        return pd;
     }
 
     @ExceptionHandler(TooManyRequestsException.class)
