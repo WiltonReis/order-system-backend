@@ -5,9 +5,11 @@
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-brightgreen?logo=springboot)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
 ![Flyway](https://img.shields.io/badge/Flyway-migrations-red?logo=flyway)
+![Prometheus](https://img.shields.io/badge/Prometheus-2.52-orange?logo=prometheus)
+![Grafana](https://img.shields.io/badge/Grafana-11.0-orange?logo=grafana)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-API REST multi-tenant para gerenciamento de pedidos, produtos e usuários em modelo SaaS. Desenvolvida com Java 21, Spring Boot 3 e PostgreSQL; autenticação stateless via JWT em cookie `httpOnly` com refresh token.
+API REST multi-tenant para gerenciamento de pedidos, produtos e usuários em modelo SaaS. Desenvolvida com Java 21, Spring Boot 3 e PostgreSQL; autenticação stateless via JWT em cookie `httpOnly` com refresh token; stack de observabilidade completa com Prometheus e Grafana provisionados via Docker Compose.
 
 ---
 
@@ -20,6 +22,7 @@ API REST multi-tenant para gerenciamento de pedidos, produtos e usuários em mod
 - [Tecnologias](#tecnologias)
 - [Multi-tenancy](#multi-tenancy)
 - [Segurança](#segurança)
+- [Observabilidade](#observabilidade)
 - [Como rodar localmente](#como-rodar-localmente)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [Testes](#testes)
@@ -34,7 +37,7 @@ API REST multi-tenant para gerenciamento de pedidos, produtos e usuários em mod
 
 O **OMS (Order Management System)** é um SaaS B2B de portfólio que simula uma plataforma real de gestão de pedidos com cadastro auto-serviço de empresas (tenants). Cada empresa opera isolada: usuários, produtos e pedidos são completamente segregados por tenant, garantidos por filtros de aplicação e testados por integração real com PostgreSQL.
 
-O objetivo é demonstrar em portfólio a construção de um backend profissional: autenticação segura, multi-tenancy, migrações versionadas, observabilidade básica, geração de PDF e CI/CD.
+O objetivo é demonstrar em portfólio a construção de um backend profissional: autenticação segura, multi-tenancy, migrações versionadas, observabilidade de produção com Prometheus/Grafana, geração de PDF e CI/CD.
 
 **Frontend:** [github.com/WiltonReis/order-system-frontend](https://github.com/WiltonReis/order-system-frontend)
 
@@ -67,10 +70,11 @@ O objetivo é demonstrar em portfólio a construção de um backend profissional
 - **Histórico de status** — Toda transição de status é registrada com autor e timestamp
 - **Exportação PDF** — `GET /orders/{id}/pdf` gera PDF completo com itens, desconto, totais e dados de auditoria
 - **Produtos** — CRUD com upload de imagem para R2
-- **Usuários** — Gestão de membros da empresa (ADMIN only)
-- **Dashboard** — Métricas agregadas por tenant (pedidos por status, receita)
+- **Usuários** — Gestão de membros da empresa (ADMIN only); e-mail e nome podem ser reutilizados após soft-delete
+- **Dashboard** — Métricas agregadas por tenant (pedidos por status, receita, filtros por período)
 - **Rate limiting** — Bucket4j em `/auth/login`, `/auth/register` e `/auth/refresh`
 - **Paginação e filtros** — Todos os endpoints de listagem suportam página, tamanho e filtros
+- **Observabilidade** — Métricas de JVM, HTTP e banco exportadas via Actuator; coletadas pelo Prometheus e visualizadas no Grafana
 
 ---
 
@@ -102,6 +106,11 @@ O objetivo é demonstrar em portfólio a construção de um backend profissional
 ┌───────────────────▼─────────────────────────┐
 │        PostgreSQL 16 (Supabase / local)     │
 └─────────────────────────────────────────────┘
+         │ /actuator/prometheus scrape (15s)
+┌────────▼────────────────────────────────────┐
+│  Prometheus → Grafana (JVM · HTTP · HikariCP│
+│              · CPU · GC · p50/p95/p99)      │
+└─────────────────────────────────────────────┘
 ```
 
 **Pacotes:**
@@ -131,16 +140,19 @@ src/main/java/com/ordersystem/
 |---|---|---|
 | Java | 21 | Linguagem |
 | Spring Boot | 3.2.5 | Framework principal |
-| Spring Security | 6.x | Autenticação e autorização |
+| Spring Security | 6.x | Autenticação e autorização via `@PreAuthorize` e filtros |
 | Spring Data JPA + Hibernate | 6.x | ORM + multi-tenancy com `@Filter` e `@SQLRestriction` |
 | PostgreSQL | 16 | Banco de dados |
-| Flyway | 10.x | Migrações versionadas (V1–V4) |
+| Flyway | 10.x | Migrações versionadas (V1–V5) |
 | JJWT | 0.12.3 | Geração e validação de JWT |
 | Bucket4j | 8.10.1 | Rate limiting em memória (Caffeine) |
 | OpenPDF | 2.0.3 | Geração de PDF de pedidos |
-| caelum-stella | 2.1.7 | Validação de CPF/CNPJ (algoritmo oficial) |
-| springdoc-openapi | 2.5.0 | Swagger UI automático |
-| Spring Actuator | 3.x | Health check para deploy |
+| caelum-stella | 2.1.7 | Validação de CPF/CNPJ (algoritmo oficial de dígito verificador) |
+| springdoc-openapi | 2.5.0 | Swagger UI automático com `@Tag`, `@Operation`, `@ApiResponses` |
+| Spring Actuator | 3.x | Health check + endpoint `/actuator/prometheus` |
+| Micrometer (Prometheus Registry) | 1.12.x | Exportação de métricas JVM, HTTP e HikariCP |
+| Prometheus | 2.52 | Coleta e retenção de métricas (15 dias) |
+| Grafana | 11.0 | Dashboards provisionados automaticamente via YAML |
 | Testcontainers | 1.21.4 | Testes de integração com PostgreSQL real |
 | Logstash Logback Encoder | 7.4 | Logs JSON estruturados em produção |
 | Lombok | latest | Redução de boilerplate |
@@ -172,10 +184,58 @@ Modelo **shared database / shared schema** com coluna discriminadora `customer_s
 | JWT access token | 10 minutos de validade, claim `tenantId` validado a cada request |
 | Refresh token | 30 dias, cookie `oms.refresh` httpOnly — renova o par access+refresh |
 | Cookie `Secure` | Obrigatório em produção (`COOKIE_SECURE=true`); startup falha se false em prod |
+| `@PreAuthorize` | Autorização declarativa por role em todos os endpoints protegidos |
 | Rate limiting | Bucket4j: 10 req/min em `/auth/login` e `/auth/register`; 5 req/min em `/auth/refresh` |
-| Validação de CPF/CNPJ | `@CpfCnpj` com algoritmo oficial caelum-stella — rejeita valores inválidos no registro |
-| RFC 7807 | Todos os erros retornam `application/problem+json` com `requestId` rastreável |
+| Validação de CPF/CNPJ | `@CpfCnpj` com algoritmo oficial caelum-stella — rejeita valores com dígito verificador inválido |
+| RFC 7807 ProblemDetail | Todos os erros retornam `application/problem+json` com `requestId` rastreável e mapa `errors` por campo |
 | CORS | Origens permitidas configuradas por variável de ambiente |
+
+---
+
+## Observabilidade
+
+Stack completa provisionada automaticamente via Docker Compose — nenhuma configuração manual necessária.
+
+| Serviço | Porta local | Descrição |
+|---|---|---|
+| Spring Actuator | `8080/actuator/prometheus` | Expõe métricas no formato Prometheus |
+| Prometheus | `9090` | Coleta métricas a cada 15s; retenção de 15 dias |
+| Grafana | `3001` | Dashboard provisionado automaticamente via YAML |
+
+**Dashboard Grafana — painéis:**
+
+| Grupo | Métricas |
+|---|---|
+| JVM | Heap/Non-Heap usados, GC pauses cumulativo |
+| HTTP | Taxa de requisições/s, latência p50/p95/p99, taxa de erros 5xx |
+| HikariCP | Conexões ativas, pendentes e tempo de aquisição |
+| Sistema | CPU do processo, memória do processo, uptime |
+
+O datasource e o dashboard são configurados via arquivos em `monitoring/grafana/provisioning/` — o Grafana sobe já conectado ao Prometheus e com o dashboard carregado.
+
+Histogramas de latência com percentis p50/p95/p99 estão habilitados globalmente em `application.yml`:
+
+```yaml
+management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+```
+
+```
+monitoring/
+├── prometheus/
+│   └── prometheus.yml            # scrape config — job: spring-boot
+└── grafana/
+    ├── provisioning/
+    │   ├── datasources/          # prometheus.yml — datasource automático
+    │   └── dashboards/           # dashboards.yml — pasta Spring Boot
+    └── dashboards/
+        └── spring-boot.json      # dashboard completo (~1800 linhas)
+```
 
 ---
 
@@ -183,26 +243,42 @@ Modelo **shared database / shared schema** com coluna discriminadora `customer_s
 
 ### Opção 1 — Docker Compose (recomendado)
 
-Sobe Postgres + backend + frontend com um único comando.
+Sobe Postgres + pgAdmin + backend + Prometheus + Grafana com um único comando.
 
 ```bash
-# Clone o monorepo
+# Clone o repositório
 git clone https://github.com/WiltonReis/order-system-backend.git
-cd order-system
+cd order-system-backend
 
 # Copie e ajuste as variáveis de ambiente
 cp .env.example .env
 
 # Suba todos os serviços
-docker compose up --build
+make up
+# ou: docker compose up -d
 ```
 
-- Backend: `http://localhost:8080`
-- Frontend: `http://localhost:3000`
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- Health check: `http://localhost:8080/actuator/health`
+**Serviços disponíveis:**
 
-> Docker deve estar em execução. O Postgres sobe com healthcheck; o backend aguarda antes de iniciar.
+| Serviço | URL |
+|---|---|
+| Backend API | `http://localhost:8080` |
+| Swagger UI | `http://localhost:8080/swagger-ui/index.html` |
+| Health check | `http://localhost:8080/actuator/health` |
+| pgAdmin | `http://localhost:5050` |
+| Prometheus | `http://localhost:9090` |
+| Grafana | `http://localhost:3001` (login: `admin` / senha do `.env`) |
+
+**Comandos `make` disponíveis:**
+
+| Comando | Ação |
+|---|---|
+| `make up` | Sobe todos os serviços em background |
+| `make down` | Para e remove os containers |
+| `make logs` | Acompanha logs de todos os serviços |
+| `make dev` | Sobe apenas Postgres + pgAdmin (para rodar o backend local com `mvn`) |
+
+> Docker deve estar em execução. O Postgres sobe com healthcheck; o backend aguarda antes de iniciar. O Prometheus aguarda o backend estar saudável antes de começar a coletar.
 
 ---
 
@@ -211,8 +287,9 @@ docker compose up --build
 **Pré-requisitos:** Java 21+, Maven 3.9+, PostgreSQL 16
 
 ```bash
-# 1. Crie o banco
-psql -U postgres -c "CREATE DATABASE order-system-bd;"
+# 1. Sobe apenas a infra necessária
+make dev
+# ou: docker compose up -d postgres pgadmin
 
 # 2. Configure as variáveis de ambiente
 export DB_USERNAME=postgres
@@ -222,7 +299,6 @@ export COOKIE_SECURE=false
 export APP_CORS_ALLOWED_ORIGINS=http://localhost:3000
 
 # 3. Execute
-cd order-system-backend
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
@@ -241,6 +317,10 @@ O Flyway cria o schema automaticamente na primeira execução.
 | `REFRESH_EXPIRATION_MS` | Validade do refresh token em ms (padrão: `2592000000`) | Não |
 | `COOKIE_SECURE` | `true` para HTTPS (obrigatório em prod) | Sim |
 | `APP_CORS_ALLOWED_ORIGINS` | Origens permitidas (ex.: `https://app.exemplo.com`) | Sim |
+| `PGADMIN_EMAIL` | E-mail de login do pgAdmin | Não (local) |
+| `PGADMIN_PASSWORD` | Senha do pgAdmin | Não (local) |
+| `GF_ADMIN_USER` | Usuário admin do Grafana (padrão: `admin`) | Não (local) |
+| `GF_ADMIN_PASSWORD` | Senha admin do Grafana | Não (local) |
 | `R2_ENDPOINT` | URL do endpoint Cloudflare R2 | Se usar upload de imagem |
 | `R2_ACCESS_KEY` | Access key do R2 | Se usar upload de imagem |
 | `R2_SECRET_KEY` | Secret key do R2 | Se usar upload de imagem |
@@ -267,6 +347,11 @@ Os testes de integração usam **Testcontainers** — Docker deve estar em execu
 |---|---|
 | `TenantIsolationIntegrationTest` | Tenant A não acessa pedidos, produtos e usuários de Tenant B — nem soft-deleted |
 | `TenantIsolationIntegrationTest` | Restauração de pedido não afeta outro tenant |
+| `UserSoftDeleteIntegrationTest` | E-mail e nome de usuário podem ser reutilizados após soft-delete no mesmo tenant |
+| `AuthServiceTest` | Fluxo de login, geração de token e validação de credenciais |
+| `OrderServiceTest` | Criação atômica, transições de status, desconto e soft-delete com restore |
+| `ProductServiceTest` | CRUD de produto com isolamento de tenant |
+| `UserServiceTest` | Gestão de membros com validação de unicidade e permissões |
 
 ![Testes de isolamento multi-tenant](docs/screenshots/multi-tenant-test.png)
 
@@ -378,16 +463,17 @@ Swagger UI disponível em `/swagger-ui/index.html` em qualquer instância rodand
 
 | Método | Endpoint | Acesso | Descrição |
 |---|---|---|---|
-| `GET` | `/dashboard` | Autenticado | Métricas do tenant (totais por status, receita) |
+| `GET` | `/dashboard` | Autenticado | Métricas do tenant (totais por status, receita, filtros por período) |
 
 ---
 
 ### Infraestrutura
 
-| Endpoint | Descrição |
-|---|---|
-| `GET /actuator/health` | Health check (público) |
-| `GET /swagger-ui.html` | Documentação interativa da API |
+| Endpoint | Acesso | Descrição |
+|---|---|---|
+| `GET /actuator/health` | Público | Health check — usado pelo Docker e Fly.io |
+| `GET /actuator/prometheus` | Interno | Métricas no formato Prometheus (coletadas pelo scraper) |
+| `GET /swagger-ui.html` | Público | Documentação interativa da API |
 
 ![Swagger UI](docs/screenshots/swagger-ui.png)
 
@@ -399,9 +485,10 @@ Swagger UI disponível em `/swagger-ui/index.html` em qualquer instância rodand
 |---|---|---|
 | Multi-tenant por filtro de aplicação (Hibernate `@Filter`) | PostgreSQL RLS | RLS exige driver customizado ou SET LOCAL por conexão — complexidade desproporcional para portfólio individual |
 | Bucket4j (em memória, Caffeine) para rate-limit | Redis | 1 instância Fly.io — Redis adicionaria custo e infra sem ganho real de escala |
-| Soft-delete com `@SQLRestriction` + restore endpoint | DELETE físico | Possibilita "desfazer" exclusão, preserva auditoria e analytics |
+| Soft-delete com `@SQLRestriction` + restore endpoint | DELETE físico | Possibilita "desfazer" exclusão, preserva auditoria e analytics; unicidade por campo mantida via partial index no Postgres |
 | Histórico de status manual (`OrderStatusHistory`) | Hibernate Envers | Envers gera schema pesado; histórico de status é o único caso de auditoria necessário no domínio |
 | JWT curto (10 min) + refresh token (30 dias) | JWT longo (7 dias) | Reduz janela de comprometimento; refresh transparente no frontend |
+| Prometheus + Grafana provisionados via YAML | Grafana configurado manualmente | Infraestrutura como código — qualquer pessoa clona e roda `make up` com stack de observabilidade completa, sem passos manuais |
 | Monolito modular | Microsserviços | Projeto solo — overhead de infra não tem retorno |
 
 ---

@@ -34,7 +34,7 @@ class UserSoftDeleteIntegrationTest extends BaseIntegrationTest {
     void setup() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of(
                 "companyName", "Empresa Soft Delete Ltda",
-                "cpfCnpj", "98765432000199",
+                "cpfCnpj", "11144477762",
                 "name", "Admin Soft Delete",
                 "email", "admin-sd@softdelete.test",
                 "password", "Admin1234"

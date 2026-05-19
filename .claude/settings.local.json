@@ -14,7 +14,9 @@
       "PowerShell(mvn *)",
       "Bash(Get-ChildItem \"C:\\\\Users\\\\Wilton\\\\Desktop\\\\Projetos\\\\order-system\\\\order-system-backend\\\\monitoring\" -Recurse)",
       "Bash(Select-Object FullName)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(./mvnw test *)",
+      "Bash(mvn test *)"
     ]
   }
 }
