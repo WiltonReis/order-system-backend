@@ -1,6 +1,8 @@
 package com.ordersystem.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -12,6 +14,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartException;
 
@@ -129,11 +132,33 @@ public class GlobalExceptionHandler {
                 "O arquivo enviado está muito grande ou corrompido. Envie um arquivo menor ou em outro formato.");
     }
 
+    // Cliente desconectou (Prometheus scraping, SSE, downloads) — sem body, sem stacktrace
+    @ExceptionHandler({ClientAbortException.class, AsyncRequestNotUsableException.class})
+    public void handleClientAbort(Exception ex, HttpServletRequest request) {
+        log.debug("Conexão encerrada pelo cliente [{}]: {} uri={}",
+                ex.getClass().getSimpleName(), ex.getMessage(), request.getRequestURI());
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex) {
+        if (isBrokenPipe(ex)) {
+            log.warn("Broken pipe — conexão encerrada: {}", ex.getMessage());
+            return problem(HttpStatus.SERVICE_UNAVAILABLE, "Conexão encerrada", "");
+        }
         log.error("Exceção não tratada: {}", ex.getMessage(), ex);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno",
                 "Ocorreu um problema inesperado. Tente novamente em instantes.");
+    }
+
+    private boolean isBrokenPipe(Throwable ex) {
+        Throwable t = ex;
+        while (t != null) {
+            if (t.getMessage() != null && t.getMessage().toLowerCase().contains("broken pipe")) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
     }
 
     private ProblemDetail problem(HttpStatus status, String title, String detail) {
