@@ -16,7 +16,8 @@
       "Bash(Select-Object FullName)",
       "Bash(docker compose *)",
       "Bash(./mvnw test *)",
-      "Bash(mvn test *)"
+      "Bash(mvn test *)",
+      "Bash(awk '{print $1}')"
     ]
   }
 }
