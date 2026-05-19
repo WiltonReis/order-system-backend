@@ -1,40 +1,70 @@
 services:
+
+  # ─── Infrastructure ──────────────────────────────────────────────────────────
+
   postgres:
     image: postgres:16-alpine
     container_name: oms-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: order-system-bd
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - oms-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d order-system-bd"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
-  backend:
-    build:
-      context: .
-    container_name: oms-backend
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: oms-pgadmin
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order-system-bd
-      DB_USERNAME: postgres
-      DB_PASSWORD: 123456
-      JWT_SECRET: m9Qkq8Xl3vJ2p9zRk8k1bQw3d2s9a0LQ0mQk8mZp8vA=
-      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000
-      COOKIE_SECURE: "false"
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
-      - "8080:8080"
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - oms-network
     depends_on:
       postgres:
         condition: service_healthy
+
+  # ─── Application ─────────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oms-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
+      COOKIE_SECURE: "false"
+    ports:
+      - "8080:8080"
+    networks:
+      - oms-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Observability ───────────────────────────────────────────────────────────
 
   prometheus:
     image: prom/prometheus:v2.52.0
@@ -50,16 +80,19 @@ services:
       - prometheus_data:/prometheus
     ports:
       - "9090:9090"
+    networks:
+      - oms-network
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   grafana:
     image: grafana/grafana-oss:11.0.0
     container_name: oms-grafana
     restart: unless-stopped
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GF_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
@@ -69,10 +102,21 @@ services:
       - grafana_data:/var/lib/grafana
     ports:
       - "3001:3000"
+    networks:
+      - oms-network
     depends_on:
       - prometheus
 
+# ─── Networks ─────────────────────────────────────────────────────────────────
+
+networks:
+  oms-network:
+    driver: bridge
+
+# ─── Volumes ──────────────────────────────────────────────────────────────────
+
 volumes:
   postgres_data:
+  pgadmin_data:
   prometheus_data:
   grafana_data:
