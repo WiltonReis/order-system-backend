@@ -1,13 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- Perfil de desenvolvimento: saída legível no console com correlação de request -->
+    <conversionRule conversionWord="maskedMsg"
+                    converterClass="com.ordersystem.infra.log.SensitiveMaskingConverter"/>
+    <conversionRule conversionWord="colorMsg"
+                    converterClass="com.ordersystem.infra.log.OmsMaskedColorConverter"/>
+    <conversionRule conversionWord="omsLevel"
+                    converterClass="com.ordersystem.infra.log.OmsLevelColorConverter"/>
+    <conversionRule conversionWord="omsLogger"
+                    converterClass="com.ordersystem.infra.log.OmsLoggerColorConverter"/>
+
+    <!-- ========== DEV: console colorido enterprise-style ========== -->
     <springProfile name="dev">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
-                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level [%X{requestId:-?} %X{tenantId:-?} %X{userId:-?}] %logger{36} - %msg%n</pattern>
+                <pattern>%gray(%d{HH:mm:ss.SSS}) %omsLevel(%-5level) [%cyan(%-8X{requestIdShort:-?})] %boldWhite(%-7X{http.method})%X{http.path} %omsLogger{36} %gray(▸) %colorMsg%n%omsLevel(%rEx)</pattern>
             </encoder>
         </appender>
+
+        <logger name="org.springframework"             level="WARN"/>
+        <logger name="org.springframework.web"         level="INFO"/>
+        <logger name="org.hibernate"                   level="WARN"/>
+        <logger name="com.zaxxer.hikari"               level="WARN"/>
+        <logger name="org.flywaydb"                    level="INFO"/>
+        <logger name="com.github.benmanes.caffeine"    level="WARN"/>
 
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
@@ -16,21 +32,59 @@
         <logger name="com.ordersystem" level="DEBUG"/>
     </springProfile>
 
-    <!-- Perfil de produção: JSON estruturado compatível com Logstash/Elasticsearch -->
+    <!-- ========== PROD: JSON estruturado compatível com Promtail/Loki ========== -->
     <springProfile name="prod">
         <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-                <includeMdcKeyName>requestId</includeMdcKeyName>
-                <includeMdcKeyName>tenantId</includeMdcKeyName>
-                <includeMdcKeyName>userId</includeMdcKeyName>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp>
+                        <fieldName>@timestamp</fieldName>
+                    </timestamp>
+                    <logLevel>
+                        <fieldName>level</fieldName>
+                    </logLevel>
+                    <loggerName>
+                        <fieldName>logger</fieldName>
+                        <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+                    </loggerName>
+                    <threadName>
+                        <fieldName>thread</fieldName>
+                    </threadName>
+                    <provider class="com.ordersystem.infra.log.MaskingMessageJsonProvider"/>
+                    <mdc/>
+                    <stackTrace>
+                        <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                            <rootCauseFirst>true</rootCauseFirst>
+                            <maxDepthPerCause>12</maxDepthPerCause>
+                            <exclude>sun\.reflect\..*</exclude>
+                            <exclude>java\.lang\.reflect\..*</exclude>
+                        </throwableConverter>
+                    </stackTrace>
+                    <globalCustomFields>
+                        <customFields>{"service":"oms-backend","env":"prod"}</customFields>
+                    </globalCustomFields>
+                </providers>
             </encoder>
         </appender>
 
-        <root level="WARN">
+        <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
             <appender-ref ref="JSON_CONSOLE"/>
+            <queueSize>512</queueSize>
+            <neverBlock>true</neverBlock>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+
+        <logger name="org.springframework.security"    level="WARN"/>
+        <logger name="org.hibernate"                   level="WARN"/>
+        <logger name="com.zaxxer.hikari"               level="WARN"/>
+        <logger name="org.flywaydb"                    level="INFO"/>
+        <logger name="com.github.benmanes.caffeine"    level="WARN"/>
+
+        <root level="INFO">
+            <appender-ref ref="ASYNC_JSON"/>
         </root>
 
-        <logger name="com.ordersystem" level="WARN"/>
+        <logger name="com.ordersystem" level="INFO"/>
     </springProfile>
 
 </configuration>

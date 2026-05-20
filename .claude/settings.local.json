@@ -17,7 +17,8 @@
       "Bash(docker compose *)",
       "Bash(./mvnw test *)",
       "Bash(mvn test *)",
-      "Bash(awk '{print $1}')"
+      "Bash(awk '{print $1}')",
+      "Bash(mvn compile *)"
     ]
   }
 }

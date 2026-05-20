@@ -1,5 +1,6 @@
 package com.ordersystem.config;
 
+import com.ordersystem.infra.HttpLoggingFilter;
 import com.ordersystem.infra.MdcFilter;
 import com.ordersystem.security.JwtAuthenticationFilter;
 import com.ordersystem.security.UserDetailsServiceImpl;
@@ -31,7 +32,6 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final MdcFilter mdcFilter;
     private final UserDetailsServiceImpl userDetailsService;
     private final CorsProperties corsProperties;
 
@@ -50,7 +50,8 @@ public class SecurityConfig {
                 )
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(mdcFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(new MdcFilter(), JwtAuthenticationFilter.class)
+                .addFilterAfter(new HttpLoggingFilter(), MdcFilter.class);
 
         return http.build();
     }

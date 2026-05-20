@@ -21,7 +21,3 @@ jwt:
 app:
   upload:
     dir: ${UPLOAD_DIR:./uploads}
-
-logging:
-  level:
-    com.ordersystem: DEBUG
