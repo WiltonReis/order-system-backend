@@ -43,3 +43,4 @@ build/
 ### Projeto ###
 /uploads
 .env
+observabilidade.md

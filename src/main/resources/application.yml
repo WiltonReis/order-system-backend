@@ -10,11 +10,12 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        generate_statistics: true
 
   cache:
     type: caffeine
     caffeine:
-      spec: maximumSize=500,expireAfterWrite=5m
+      spec: maximumSize=500,expireAfterWrite=5m,recordStats
 
   servlet:
     multipart:

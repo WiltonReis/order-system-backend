@@ -14,6 +14,15 @@ spring:
     baseline-on-migrate: true
     baseline-version: 1
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics,info,caches,httpexchanges
+  endpoint:
+    health:
+      show-details: always
+
 jwt:
   # Fallback é APENAS para desenvolvimento local — nunca usar em produção.
   secret: ${JWT_SECRET:m9Qkq8Xl3vJ2p9zRk8k1bQw3d2s9a0LQ0mQk8mZp8vA=}
