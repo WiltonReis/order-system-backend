@@ -26,7 +26,9 @@ public class MdcFilter extends OncePerRequestFilter {
             MDC.put("requestIdShort", requestId.substring(0, 8));
 
             String xRequestId = request.getHeader("X-Request-ID");
-            MDC.put("traceId", (xRequestId != null && !xRequestId.isBlank()) ? xRequestId : requestId);
+            if (xRequestId != null && !xRequestId.isBlank()) {
+                MDC.put("clientRequestId", xRequestId);
+            }
 
             MDC.put("http.method", request.getMethod());
             MDC.put("http.path", request.getRequestURI());

@@ -14,7 +14,7 @@
     <springProfile name="dev">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
-                <pattern>%gray(%d{HH:mm:ss.SSS}) %omsLevel(%-5level) [%cyan(%-8X{requestIdShort:-?})] %boldWhite(%-7X{http.method})%X{http.path} %omsLogger{36} %gray(▸) %colorMsg%n%omsLevel(%rEx)</pattern>
+                <pattern>%gray(%d{HH:mm:ss.SSS}) %omsLevel(%-5level) [%cyan(%X{traceId:-})] [%cyan(%X{spanId:-})] [%magenta(%X{clientRequestId:-})] %boldWhite(%-7X{http.method})%X{http.path} %omsLogger{36} %gray(▸) %colorMsg%n%omsLevel(%rEx)</pattern>
             </encoder>
         </appender>
 
