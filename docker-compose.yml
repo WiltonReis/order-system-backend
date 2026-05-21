@@ -88,6 +88,19 @@ services:
       backend:
         condition: service_healthy
 
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: oms-loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/loki-config.yaml"]
+    volumes:
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - oms-network
+
   tempo:
     image: grafana/tempo:2.4.1
     container_name: oms-tempo
@@ -123,6 +136,7 @@ services:
     depends_on:
       - prometheus
       - tempo
+      - loki
 
 # ─── Networks ─────────────────────────────────────────────────────────────────
 
@@ -138,3 +152,4 @@ volumes:
   prometheus_data:
   grafana_data:
   tempo_data:
+  loki_data:
