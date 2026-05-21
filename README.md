@@ -8,6 +8,7 @@
 ![Prometheus](https://img.shields.io/badge/Prometheus-2.52-orange?logo=prometheus)
 ![Grafana](https://img.shields.io/badge/Grafana-11.0-orange?logo=grafana)
 ![Tempo](https://img.shields.io/badge/Tempo-2.4-orange?logo=grafana)
+![Loki](https://img.shields.io/badge/Loki-2.9-orange?logo=grafana)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 API REST multi-tenant para gerenciamento de pedidos, produtos e usuários em modelo SaaS. Desenvolvida com Java 21, Spring Boot 3 e PostgreSQL; autenticação stateless via JWT em cookie `httpOnly` com refresh token; stack de observabilidade completa com Prometheus e Grafana provisionados via Docker Compose.
@@ -159,6 +160,8 @@ src/main/java/com/ordersystem/
 | Grafana | 11.0 | Dashboards provisionados automaticamente via YAML |
 | Testcontainers | 1.21.4 | Testes de integração com PostgreSQL real |
 | Logstash Logback Encoder | 7.4 | Logs JSON estruturados em produção |
+| loki4j (loki-logback-appender) | 1.5.2 | Envia logs diretamente ao Loki via HTTP (DEV local e PROD Grafana Cloud) |
+| Grafana Loki | 2.9 | Agregação e consulta de logs; link `traceId` → Tempo |
 | Lombok | latest | Redução de boilerplate |
 | AWS SDK v2 (S3) | 2.26.12 | Upload de imagens para Cloudflare R2 |
 
@@ -206,6 +209,7 @@ Stack completa provisionada automaticamente via Docker Compose — nenhuma confi
 | Prometheus | `9090` | Coleta métricas a cada 15s; retenção de 15 dias; exemplar-storage habilitado |
 | Grafana | `3001` | Dashboard provisionado automaticamente via YAML; link trace → metric via exemplars |
 | Tempo | `3200` | Armazena traces OTLP; recebe spans do backend via HTTP em `4318` |
+| Loki | `3100` | Recebe logs via loki4j (push); retenção de 7 dias; link `traceId` → Tempo |
 
 **Dashboard Grafana — painéis:**
 
@@ -215,6 +219,7 @@ Stack completa provisionada automaticamente via Docker Compose — nenhuma confi
 | HTTP | Taxa de requisições/s, latência p50/p95/p99, taxa de erros 5xx |
 | HikariCP | Conexões ativas, pendentes e tempo de aquisição |
 | Sistema | CPU do processo, memória do processo, uptime |
+| Logs | Stream de logs em tempo real via Loki (`{service="oms-backend"}`) |
 
 O datasource e o dashboard são configurados via arquivos em `monitoring/grafana/provisioning/` — o Grafana sobe já conectado ao Prometheus e com o dashboard carregado.
 
@@ -236,9 +241,11 @@ monitoring/
 │   └── prometheus.yml            # scrape config — job: spring-boot; exemplar-storage
 ├── tempo/
 │   └── tempo.yaml                # receiver OTLP/HTTP :4318; storage local
+├── loki/
+│   └── loki-config.yaml          # boltdb-shipper + filesystem; retenção 7 dias
 └── grafana/
     ├── provisioning/
-    │   ├── datasources/          # prometheus.yml + tempo.yml — datasources automáticos
+    │   ├── datasources/          # prometheus.yml + tempo.yml + loki.yml — datasources automáticos
     │   └── dashboards/           # dashboards.yml — pasta Spring Boot
     └── dashboards/
         └── spring-boot.json      # dashboard completo (~1800 linhas)
@@ -276,6 +283,7 @@ make up
 | Prometheus | `http://localhost:9090` |
 | Grafana | `http://localhost:3001` (login: `admin` / senha do `.env`) |
 | Tempo | `http://localhost:3200` (API HTTP; receiver OTLP em `4318`) |
+| Loki | `http://localhost:3100` |
 
 **Comandos `make` disponíveis:**
 
