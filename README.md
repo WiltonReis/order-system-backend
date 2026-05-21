@@ -7,6 +7,7 @@
 ![Flyway](https://img.shields.io/badge/Flyway-migrations-red?logo=flyway)
 ![Prometheus](https://img.shields.io/badge/Prometheus-2.52-orange?logo=prometheus)
 ![Grafana](https://img.shields.io/badge/Grafana-11.0-orange?logo=grafana)
+![Tempo](https://img.shields.io/badge/Tempo-2.4-orange?logo=grafana)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 API REST multi-tenant para gerenciamento de pedidos, produtos e usuários em modelo SaaS. Desenvolvida com Java 21, Spring Boot 3 e PostgreSQL; autenticação stateless via JWT em cookie `httpOnly` com refresh token; stack de observabilidade completa com Prometheus e Grafana provisionados via Docker Compose.
@@ -151,7 +152,10 @@ src/main/java/com/ordersystem/
 | springdoc-openapi | 2.5.0 | Swagger UI automático com `@Tag`, `@Operation`, `@ApiResponses` |
 | Spring Actuator | 3.x | Health check + endpoint `/actuator/prometheus` |
 | Micrometer (Prometheus Registry) | 1.12.x | Exportação de métricas JVM, HTTP e HikariCP |
-| Prometheus | 2.52 | Coleta e retenção de métricas (15 dias) |
+| Micrometer Tracing + OTel Bridge | 1.2.x | Tracing distribuído; popula `traceId`/`spanId` no MDC |
+| OpenTelemetry OTLP Exporter | 1.36.0 | Envia traces via HTTP para Tempo (DEV) / Grafana Cloud (PROD) |
+| Prometheus | 2.52 | Coleta e retenção de métricas (15 dias); exemplar-storage habilitado |
+| Grafana Tempo | 2.4 | Armazenamento e consulta de traces; link exemplar → trace |
 | Grafana | 11.0 | Dashboards provisionados automaticamente via YAML |
 | Testcontainers | 1.21.4 | Testes de integração com PostgreSQL real |
 | Logstash Logback Encoder | 7.4 | Logs JSON estruturados em produção |
@@ -194,13 +198,14 @@ Modelo **shared database / shared schema** com coluna discriminadora `customer_s
 
 ## Observabilidade
 
-Stack completa provisionada automaticamente via Docker Compose — nenhuma configuração manual necessária.
+Stack completa provisionada automaticamente via Docker Compose — nenhuma configuração manual necessária. Inclui tracing distribuído ponta-a-ponta com link bidirecional **trace ⇄ log ⇄ metric** via exemplars no Grafana.
 
 | Serviço | Porta local | Descrição |
 |---|---|---|
 | Spring Actuator | `8080/actuator/prometheus` | Expõe métricas no formato Prometheus |
-| Prometheus | `9090` | Coleta métricas a cada 15s; retenção de 15 dias |
-| Grafana | `3001` | Dashboard provisionado automaticamente via YAML |
+| Prometheus | `9090` | Coleta métricas a cada 15s; retenção de 15 dias; exemplar-storage habilitado |
+| Grafana | `3001` | Dashboard provisionado automaticamente via YAML; link trace → metric via exemplars |
+| Tempo | `3200` | Armazena traces OTLP; recebe spans do backend via HTTP em `4318` |
 
 **Dashboard Grafana — painéis:**
 
@@ -228,10 +233,12 @@ management:
 ```
 monitoring/
 ├── prometheus/
-│   └── prometheus.yml            # scrape config — job: spring-boot
+│   └── prometheus.yml            # scrape config — job: spring-boot; exemplar-storage
+├── tempo/
+│   └── tempo.yaml                # receiver OTLP/HTTP :4318; storage local
 └── grafana/
     ├── provisioning/
-    │   ├── datasources/          # prometheus.yml — datasource automático
+    │   ├── datasources/          # prometheus.yml + tempo.yml — datasources automáticos
     │   └── dashboards/           # dashboards.yml — pasta Spring Boot
     └── dashboards/
         └── spring-boot.json      # dashboard completo (~1800 linhas)
@@ -268,6 +275,7 @@ make up
 | pgAdmin | `http://localhost:5050` |
 | Prometheus | `http://localhost:9090` |
 | Grafana | `http://localhost:3001` (login: `admin` / senha do `.env`) |
+| Tempo | `http://localhost:3200` (API HTTP; receiver OTLP em `4318`) |
 
 **Comandos `make` disponíveis:**
 
