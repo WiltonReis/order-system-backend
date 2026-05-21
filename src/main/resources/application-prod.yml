@@ -1,3 +1,9 @@
+oms:
+  env: prod
+
+loki:
+  url: ${LOKI_URL}
+
 spring:
   datasource:
     url: ${DB_URL}

@@ -10,78 +10,106 @@
     <conversionRule conversionWord="omsLogger"
                     converterClass="com.ordersystem.infra.log.OmsLoggerColorConverter"/>
 
-    <!-- ========== DEV: console colorido enterprise-style ========== -->
-    <springProfile name="dev">
-        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder>
-                <pattern>%gray(%d{HH:mm:ss.SSS}) %omsLevel(%-5level) [%cyan(%X{traceId:-})] [%cyan(%X{spanId:-})] [%magenta(%X{clientRequestId:-})] %boldWhite(%-7X{http.method})%X{http.path} %omsLogger{36} %gray(▸) %colorMsg%n%omsLevel(%rEx)</pattern>
-            </encoder>
-        </appender>
+    <springProperty name="loki_url" source="loki.url"
+                    defaultValue="http://localhost:3100/loki/api/v1/push"/>
+    <springProperty name="oms_env"  source="oms.env" defaultValue="dev"/>
 
+    <!-- ========== CONSOLE colorido (DEV) ========== -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%gray(%d{HH:mm:ss.SSS}) %omsLevel(%-5level) [%cyan(%X{traceId:-})] [%cyan(%X{spanId:-})] [%magenta(%X{clientRequestId:-})] %boldWhite(%-7X{http.method})%X{http.path} %omsLogger{36} %gray(▸) %colorMsg%n%omsLevel(%rEx)</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ========== JSON_CONSOLE (PROD) ========== -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <fieldName>@timestamp</fieldName>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                    <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+                </loggerName>
+                <threadName>
+                    <fieldName>thread</fieldName>
+                </threadName>
+                <provider class="com.ordersystem.infra.log.MaskingMessageJsonProvider"/>
+                <mdc/>
+                <stackTrace>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <rootCauseFirst>true</rootCauseFirst>
+                        <maxDepthPerCause>12</maxDepthPerCause>
+                        <exclude>sun\.reflect\..*</exclude>
+                        <exclude>java\.lang\.reflect\..*</exclude>
+                    </throwableConverter>
+                </stackTrace>
+                <globalCustomFields>
+                    <customFields>{"service":"oms-backend","env":"${oms_env}"}</customFields>
+                </globalCustomFields>
+            </providers>
+        </encoder>
+    </appender>
+
+    <!-- ========== LOKI via loki4j ========== -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>${loki_url}</url>
+            <connectionTimeoutMs>5000</connectionTimeoutMs>
+            <requestTimeoutMs>5000</requestTimeoutMs>
+        </http>
+        <format>
+            <label>
+                <pattern>service=oms-backend,env=${oms_env},level=%level</pattern>
+            </label>
+            <message>
+                <pattern>traceId="%X{traceId:-}" spanId="%X{spanId:-}" requestId="%X{requestId:-}" userId="%X{userId:-}" tenantId="%X{tenantId:-}" method="%X{http.method:-}" path="%X{http.path:-}" logger="%logger{36}" msg="%maskedMsg"</pattern>
+            </message>
+            <sortByTime>true</sortByTime>
+        </format>
+    </appender>
+
+    <appender name="ASYNC_LOKI" class="ch.qos.logback.classic.AsyncAppender">
+        <appender-ref ref="LOKI"/>
+        <queueSize>512</queueSize>
+        <neverBlock>true</neverBlock>
+        <includeCallerData>false</includeCallerData>
+    </appender>
+
+    <!-- ========== DEV: console colorido + loki ========== -->
+    <springProfile name="dev">
         <logger name="org.springframework"             level="WARN"/>
         <logger name="org.springframework.web"         level="INFO"/>
         <logger name="org.hibernate"                   level="WARN"/>
         <logger name="com.zaxxer.hikari"               level="WARN"/>
         <logger name="org.flywaydb"                    level="INFO"/>
         <logger name="com.github.benmanes.caffeine"    level="WARN"/>
+        <logger name="com.github.loki4j"               level="WARN"/>
 
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_LOKI"/>
         </root>
 
         <logger name="com.ordersystem" level="DEBUG"/>
     </springProfile>
 
-    <!-- ========== PROD: JSON estruturado compatível com Promtail/Loki ========== -->
+    <!-- ========== PROD: JSON estruturado + loki ========== -->
     <springProfile name="prod">
-        <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-                <providers>
-                    <timestamp>
-                        <fieldName>@timestamp</fieldName>
-                    </timestamp>
-                    <logLevel>
-                        <fieldName>level</fieldName>
-                    </logLevel>
-                    <loggerName>
-                        <fieldName>logger</fieldName>
-                        <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
-                    </loggerName>
-                    <threadName>
-                        <fieldName>thread</fieldName>
-                    </threadName>
-                    <provider class="com.ordersystem.infra.log.MaskingMessageJsonProvider"/>
-                    <mdc/>
-                    <stackTrace>
-                        <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
-                            <rootCauseFirst>true</rootCauseFirst>
-                            <maxDepthPerCause>12</maxDepthPerCause>
-                            <exclude>sun\.reflect\..*</exclude>
-                            <exclude>java\.lang\.reflect\..*</exclude>
-                        </throwableConverter>
-                    </stackTrace>
-                    <globalCustomFields>
-                        <customFields>{"service":"oms-backend","env":"prod"}</customFields>
-                    </globalCustomFields>
-                </providers>
-            </encoder>
-        </appender>
-
-        <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
-            <appender-ref ref="JSON_CONSOLE"/>
-            <queueSize>512</queueSize>
-            <neverBlock>true</neverBlock>
-            <includeCallerData>false</includeCallerData>
-        </appender>
-
         <logger name="org.springframework.security"    level="WARN"/>
         <logger name="org.hibernate"                   level="WARN"/>
         <logger name="com.zaxxer.hikari"               level="WARN"/>
         <logger name="org.flywaydb"                    level="INFO"/>
         <logger name="com.github.benmanes.caffeine"    level="WARN"/>
+        <logger name="com.github.loki4j"               level="WARN"/>
 
         <root level="INFO">
-            <appender-ref ref="ASYNC_JSON"/>
+            <appender-ref ref="JSON_CONSOLE"/>
+            <appender-ref ref="ASYNC_LOKI"/>
         </root>
 
         <logger name="com.ordersystem" level="INFO"/>
