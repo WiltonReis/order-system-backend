@@ -56,6 +56,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS}
       COOKIE_SECURE: "false"
+      OTLP_TRACING_ENDPOINT: http://tempo:4318/v1/traces
     ports:
       - "8080:8080"
     networks:
@@ -75,6 +76,7 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=15d'
       - '--web.enable-lifecycle'
+      - '--enable-feature=exemplar-storage'
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -85,6 +87,20 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    container_name: oms-tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./monitoring/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    ports:
+      - "3200:3200"
+      - "4318:4318"
+    networks:
+      - oms-network
 
   grafana:
     image: grafana/grafana-oss:11.0.0
@@ -106,6 +122,7 @@ services:
       - oms-network
     depends_on:
       - prometheus
+      - tempo
 
 # ─── Networks ─────────────────────────────────────────────────────────────────
 
@@ -120,3 +137,4 @@ volumes:
   pgadmin_data:
   prometheus_data:
   grafana_data:
+  tempo_data:
