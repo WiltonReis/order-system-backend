@@ -11,6 +11,8 @@ import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserPrincipal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.mockito.Answers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -53,6 +55,9 @@ class AuthServiceTest {
 
     @Spy
     private AuthMapper authMapper = Mappers.getMapper(AuthMapper.class);
+
+    @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+    private MeterRegistry meterRegistry;
 
     @InjectMocks
     private AuthService authService;
