@@ -61,6 +61,11 @@ public class LoginRateLimiterService {
                 .build();
     }
 
+    public void reset() {
+        buckets.clear();
+        blockedUntil.clear();
+    }
+
     @Scheduled(fixedDelay = 1800000)
     void cleanupExpiredBlocks() {
         Instant now = Instant.now();
