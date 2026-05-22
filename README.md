@@ -221,6 +221,17 @@ Stack completa provisionada automaticamente via Docker Compose — nenhuma confi
 | Sistema | CPU do processo, memória do processo, uptime |
 | Logs | Stream de logs em tempo real via Loki (`{service="oms-backend"}`) |
 
+**Dashboard Grafana — Business (`OMS — Business`):**
+
+| Painel | Detalhe |
+|---|---|
+| Login Attempts by Outcome | Taxa de tentativas de login por resultado: `success`, `failure`, `locked` |
+| Blocked IPs / Login Success Ratio | IPs bloqueados por rate limit; taxa de sucesso no período |
+| Orders Lifecycle Rate | Taxa de pedidos criados, concluídos e cancelados |
+| Orders Created / Completed / Cancelled | Totais absolutos no período selecionado |
+| PDF Generation Latency | Latência de geração de PDF: p50, p95, p99 (via `@Timed`) |
+| Cache Hit Ratio by Name | Proporção de acertos por cache Caffeine |
+
 O datasource e o dashboard são configurados via arquivos em `monitoring/grafana/provisioning/` — o Grafana sobe já conectado ao Prometheus e com o dashboard carregado.
 
 Histogramas de latência com percentis p50/p95/p99 estão habilitados globalmente em `application.yml`:
@@ -248,7 +259,8 @@ monitoring/
     │   ├── datasources/          # prometheus.yml + tempo.yml + loki.yml — datasources automáticos
     │   └── dashboards/           # dashboards.yml — pasta Spring Boot
     └── dashboards/
-        └── spring-boot.json      # dashboard completo (~1800 linhas)
+        ├── spring-boot.json      # dashboard JVM/HTTP/HikariCP/Logs
+        └── business.json         # dashboard de métricas de negócio
 ```
 
 ---

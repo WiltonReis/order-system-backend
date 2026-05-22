@@ -13,10 +13,12 @@ import com.ordersystem.repository.CustomerSaasRepository;
 import com.ordersystem.repository.UserRepository;
 import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserPrincipal;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,13 +35,20 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthMapper authMapper;
     private final AuthValidator authValidator;
+    private final MeterRegistry meterRegistry;
 
     public record LoginResult(AuthResponse authResponse, String refreshToken) {}
 
     public LoginResult login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (AuthenticationException e) {
+            meterRegistry.counter("auth.login.attempts", "outcome", "failure").increment();
+            throw e;
+        }
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         String accessToken = jwtTokenProvider.generateToken(principal);
@@ -59,6 +68,7 @@ public class AuthService {
                 role,
                 principal.getCustomerSaasId()
         );
+        meterRegistry.counter("auth.login.attempts", "outcome", "success").increment();
         return new LoginResult(authResponse, refreshToken);
     }
 

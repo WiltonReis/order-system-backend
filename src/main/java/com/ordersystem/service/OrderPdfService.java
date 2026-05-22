@@ -5,6 +5,7 @@ import com.lowagie.text.pdf.*;
 import com.ordersystem.dto.response.OrderDetailResponse;
 import com.ordersystem.dto.response.OrderItemResponse;
 import com.ordersystem.enums.OrderStatus;
+import io.micrometer.core.annotation.Timed;
 import org.springframework.stereotype.Service;
 
 import java.awt.Color;
@@ -35,6 +36,7 @@ public class OrderPdfService {
     private static final DateTimeFormatter DT_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final NumberFormat BRL_FMT = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
 
+    @Timed("pdf.generation")
     public byte[] generate(OrderDetailResponse order) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             Document doc = new Document(PageSize.A4, 40, 40, 40, 50);

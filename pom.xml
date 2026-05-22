@@ -137,10 +137,16 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- Observabilidade: exporta métricas no formato Prometheus -->
+        <!-- Observabilidade: exporta métricas no formato Prometheus (DEV) -->
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
+        <!-- Observabilidade PROD: exporta métricas via OTLP push para Grafana Cloud Mimir -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-otlp</artifactId>
         </dependency>
 
         <!-- Tracing: Micrometer bridge para OpenTelemetry -->

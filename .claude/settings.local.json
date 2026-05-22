@@ -18,7 +18,16 @@
       "Bash(./mvnw test *)",
       "Bash(mvn test *)",
       "Bash(awk '{print $1}')",
-      "Bash(mvn compile *)"
+      "Bash(mvn compile *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(Get-Content *)",
+      "PowerShell(New-Item *)",
+      "Bash(python3 -c ' *)",
+      "Bash(mvn -q compile)",
+      "Bash(mvn dependency:tree -Dincludes=com.github.loki4j,ch.qos.logback)",
+      "Bash(grep -rh '\\\\${[A-Z_][A-Z_0-9]*' src/main/resources/ --include=\"*.yml\" --include=\"*.xml\" -o)",
+      "Bash(grep -rh '\\\\${[A-Z_]' src/main/resources/logback-spring.xml -o)"
     ]
   }
 }

@@ -27,6 +27,7 @@ import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import com.ordersystem.specification.OrderSpecification;
 import com.ordersystem.validation.OrderValidator;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -63,6 +64,7 @@ public class OrderService {
     private final AuthenticatedUserProvider authenticatedUserProvider;
     private final OrderPdfService orderPdfService;
     private final OrderMapper orderMapper;
+    private final MeterRegistry meterRegistry;
 
     // MT-21: MAX+1 por tenant dentro de transação SERIALIZABLE — sem race condition entre pedidos do mesmo tenant
     private String generateOrderCode(UUID tenantId) {
@@ -87,6 +89,7 @@ public class OrderService {
         }
 
         Order saved = orderRepository.save(order);
+        meterRegistry.counter("orders.lifecycle", "event", "created").increment();
         return orderMapper.toOrderResponse(saved);
     }
 
@@ -135,6 +138,7 @@ public class OrderService {
         order.recalculateTotal();
 
         Order saved = orderRepository.save(order);
+        meterRegistry.counter("orders.lifecycle", "event", "created").increment();
         return orderMapper.toOrderDetailResponse(saved);
     }
 
@@ -260,6 +264,7 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         recordStatusChange(saved, oldStatus, OrderStatus.COMPLETED, principal);
+        meterRegistry.counter("orders.lifecycle", "event", "completed").increment();
         return orderMapper.toOrderResponse(saved);
     }
 
@@ -278,6 +283,7 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         recordStatusChange(saved, oldStatus, OrderStatus.CANCELED, principal);
+        meterRegistry.counter("orders.lifecycle", "event", "cancelled").increment();
         return orderMapper.toOrderResponse(saved);
     }
 

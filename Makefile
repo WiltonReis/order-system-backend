@@ -17,3 +17,6 @@ logs:
 ## dev: start only infrastructure (postgres + pgadmin) for local Spring Boot dev
 dev:
 	$(COMPOSE) up -d postgres pgadmin
+
+build:
+    $(COMPOSE) up -d --build
