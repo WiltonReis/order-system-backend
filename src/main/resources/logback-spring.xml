@@ -10,9 +10,10 @@
     <conversionRule conversionWord="omsLogger"
                     converterClass="com.ordersystem.infra.log.OmsLoggerColorConverter"/>
 
-    <springProperty name="loki_url" source="loki.url"
-                    defaultValue="http://localhost:3100/loki/api/v1/push"/>
-    <springProperty name="oms_env"  source="oms.env" defaultValue="dev"/>
+    <springProperty name="loki_url"      source="loki.url"      defaultValue="http://localhost:3100/loki/api/v1/push"/>
+    <springProperty name="loki_user"     source="loki.user"     defaultValue=""/>
+    <springProperty name="loki_password" source="loki.password" defaultValue=""/>
+    <springProperty name="oms_env"       source="oms.env"       defaultValue="dev"/>
 
     <!-- ========== CONSOLE colorido (DEV) ========== -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -59,6 +60,10 @@
     <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
         <http>
             <url>${loki_url}</url>
+            <auth>
+                <username>${loki_user}</username>
+                <password>${loki_password}</password>
+            </auth>
             <connectionTimeoutMs>5000</connectionTimeoutMs>
             <requestTimeoutMs>5000</requestTimeoutMs>
         </http>

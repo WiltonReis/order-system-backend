@@ -27,7 +27,13 @@
       "Bash(mvn -q compile)",
       "Bash(mvn dependency:tree -Dincludes=com.github.loki4j,ch.qos.logback)",
       "Bash(grep -rh '\\\\${[A-Z_][A-Z_0-9]*' src/main/resources/ --include=\"*.yml\" --include=\"*.xml\" -o)",
-      "Bash(grep -rh '\\\\${[A-Z_]' src/main/resources/logback-spring.xml -o)"
+      "Bash(grep -rh '\\\\${[A-Z_]' src/main/resources/logback-spring.xml -o)",
+      "WebSearch",
+      "Bash(node *)",
+      "WebFetch(domain:grafana.com)",
+      "Bash(fly secrets *)",
+      "Bash(fly logs *)",
+      "Bash(fly status *)"
     ]
   }
 }

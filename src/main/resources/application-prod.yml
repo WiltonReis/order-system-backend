@@ -3,6 +3,8 @@ oms:
 
 loki:
   url: ${LOKI_URL}
+  user: ${LOKI_USER}
+  password: ${LOKI_PASSWORD}
 
 spring:
   datasource:
@@ -32,7 +34,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  otlp:
+    metrics:
+      export:
+        url: ${OTLP_METRICS_URL}
+        headers:
+          Authorization: "Basic ${OTLP_METRICS_AUTH_BASE64}"
+    tracing:
+      endpoint: ${OTLP_TRACING_ENDPOINT}
+      headers:
+        Authorization: "Basic ${OTLP_TRACES_AUTH_BASE64}"
   tracing:
     sampling:
       probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
