@@ -315,7 +315,7 @@ public class OrderService {
             throw new ResourceNotFoundException("Order", id);
         }
         orderRepository.deleteById(id);
-        return new MessageResponse("Order deleted successfully");
+        return new MessageResponse("Pedido excluído com sucesso");
     }
 
     // Janela curta de restore para evitar zumbis (toast "Desfazer" do frontend dura ~5s)
@@ -343,7 +343,7 @@ public class OrderService {
 
         order.setDeletedAt(null);
         orderRepository.save(order);
-        return new MessageResponse("Order restored successfully");
+        return new MessageResponse("Pedido restaurado com sucesso");
     }
 
     @Transactional
@@ -402,7 +402,7 @@ public class OrderService {
         order.recalculateTotal();
         orderRepository.save(order);
 
-        return new MessageResponse("Item removed");
+        return new MessageResponse("Item removido");
     }
 
 }

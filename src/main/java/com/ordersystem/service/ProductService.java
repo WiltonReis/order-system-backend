@@ -98,7 +98,7 @@ public class ProductService {
         productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
         productRepository.deleteById(id);
-        return new MessageResponse("Product deleted successfully");
+        return new MessageResponse("Produto excluído com sucesso");
     }
 
     @Transactional

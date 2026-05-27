@@ -67,10 +67,9 @@ public class UserController {
             @ApiResponse(responseCode = "200", description = "Usuário atualizado"),
             @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content),
             @ApiResponse(responseCode = "401", description = "Não autenticado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Sem permissão", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Sem permissão ou operação não permitida para ADMIN_MASTER", content = @Content),
             @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
-            @ApiResponse(responseCode = "409", description = "E-mail já em uso por outro usuário", content = @Content),
-            @ApiResponse(responseCode = "422", description = "Operação não permitida para ADMIN_MASTER", content = @Content)
+            @ApiResponse(responseCode = "409", description = "E-mail já em uso por outro usuário", content = @Content)
     })
     public ResponseEntity<UserResponse> update(@PathVariable UUID id,
                                                @Valid @RequestBody UserUpdateRequest request) {
@@ -84,9 +83,8 @@ public class UserController {
             @ApiResponse(responseCode = "200", description = "Role atualizado"),
             @ApiResponse(responseCode = "400", description = "Role inválido", content = @Content),
             @ApiResponse(responseCode = "401", description = "Não autenticado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Sem permissão", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
-            @ApiResponse(responseCode = "422", description = "Operação não permitida para ADMIN_MASTER", content = @Content)
+            @ApiResponse(responseCode = "403", description = "Sem permissão ou operação não permitida para ADMIN_MASTER", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content)
     })
     public ResponseEntity<UserResponse> updateRole(@PathVariable UUID id,
                                                    @Valid @RequestBody UserRoleRequest request) {
@@ -99,9 +97,8 @@ public class UserController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Usuário excluído"),
             @ApiResponse(responseCode = "401", description = "Não autenticado", content = @Content),
-            @ApiResponse(responseCode = "403", description = "Sem permissão", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content),
-            @ApiResponse(responseCode = "422", description = "Operação não permitida para ADMIN_MASTER", content = @Content)
+            @ApiResponse(responseCode = "403", description = "Sem permissão ou operação não permitida para ADMIN_MASTER", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado", content = @Content)
     })
     public ResponseEntity<MessageResponse> delete(@PathVariable UUID id) {
         return ResponseEntity.ok(userService.delete(id));

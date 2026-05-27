@@ -98,6 +98,6 @@ public class UserService {
         userValidator.validateNotAdminMaster(user.getRole());
 
         userRepository.delete(user);
-        return new MessageResponse("User deleted successfully");
+        return new MessageResponse("Usuário excluído com sucesso");
     }
 }

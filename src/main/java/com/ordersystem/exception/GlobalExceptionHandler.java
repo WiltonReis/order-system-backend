@@ -35,7 +35,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ProblemDetail handleBusiness(BusinessException ex) {
-        return problem(HttpStatus.BAD_REQUEST, "Requisição inválida", ex.getMessage());
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Regra de negócio violada", ex.getMessage());
     }
 
     @ExceptionHandler(ConflictException.class)

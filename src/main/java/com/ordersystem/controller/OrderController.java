@@ -149,7 +149,7 @@ public class OrderController {
             @ApiResponse(responseCode = "200", description = "Pedido concluído"),
             @ApiResponse(responseCode = "401", description = "Não autenticado", content = @Content),
             @ApiResponse(responseCode = "404", description = "Pedido não encontrado", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Transição de status inválida", content = @Content)
+            @ApiResponse(responseCode = "422", description = "Transição de status inválida", content = @Content)
     })
     public ResponseEntity<OrderResponse> complete(@PathVariable UUID id) {
         return ResponseEntity.ok(orderService.completeOrder(id));
@@ -161,7 +161,7 @@ public class OrderController {
             @ApiResponse(responseCode = "200", description = "Pedido cancelado"),
             @ApiResponse(responseCode = "401", description = "Não autenticado", content = @Content),
             @ApiResponse(responseCode = "404", description = "Pedido não encontrado", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Transição de status inválida", content = @Content)
+            @ApiResponse(responseCode = "422", description = "Transição de status inválida", content = @Content)
     })
     public ResponseEntity<OrderResponse> cancel(@PathVariable UUID id) {
         return ResponseEntity.ok(orderService.cancelOrder(id));
@@ -229,7 +229,6 @@ public class OrderController {
             @ApiResponse(responseCode = "400", description = "Dados inválidos", content = @Content),
             @ApiResponse(responseCode = "401", description = "Não autenticado", content = @Content),
             @ApiResponse(responseCode = "404", description = "Pedido ou produto não encontrado", content = @Content),
-            @ApiResponse(responseCode = "409", description = "Produto já existe no pedido", content = @Content),
             @ApiResponse(responseCode = "422", description = "Pedido não está aberto", content = @Content)
     })
     public ResponseEntity<OrderItemResponse> addItem(@PathVariable UUID id,
