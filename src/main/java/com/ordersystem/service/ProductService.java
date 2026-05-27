@@ -1,5 +1,6 @@
 package com.ordersystem.service;
 
+import com.ordersystem.annotation.EvictProductCaches;
 import com.ordersystem.dto.request.ProductRequest;
 import com.ordersystem.dto.request.ProductUpdateRequest;
 import com.ordersystem.dto.response.MessageResponse;
@@ -14,9 +15,7 @@ import com.ordersystem.security.AuthenticatedUserProvider;
 import com.ordersystem.security.TenantContext;
 import com.ordersystem.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -40,10 +39,7 @@ public class ProductService {
     private final ProductValidator productValidator;
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "products-paged", allEntries = true)
-    })
+    @EvictProductCaches
     public ProductResponse create(ProductRequest request) {
         UserPrincipal principal = authenticatedUserProvider.getPrincipal();
 
@@ -73,10 +69,7 @@ public class ProductService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "products-paged", allEntries = true)
-    })
+    @EvictProductCaches
     public ProductResponse update(UUID id, ProductUpdateRequest request) {
         Product product = productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
@@ -90,10 +83,7 @@ public class ProductService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "products-paged", allEntries = true)
-    })
+    @EvictProductCaches
     public ProductResponse updatePrice(UUID id, BigDecimal price) {
         Product product = productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
@@ -103,10 +93,7 @@ public class ProductService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "products-paged", allEntries = true)
-    })
+    @EvictProductCaches
     public MessageResponse delete(UUID id) {
         productRepository.findByIdFiltered(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", id));
@@ -115,10 +102,7 @@ public class ProductService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "products-paged", allEntries = true)
-    })
+    @EvictProductCaches
     public ProductResponse uploadImage(UUID id, MultipartFile file) {
         productValidator.validateImageFile(file);
 
