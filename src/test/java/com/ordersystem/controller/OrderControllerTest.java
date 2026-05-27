@@ -15,6 +15,7 @@ import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserDetailsServiceImpl;
 import com.ordersystem.service.OrderService;
 import com.ordersystem.service.TokenBlacklistService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -62,6 +63,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("POST /orders autenticado cria pedido vazio e retorna 201")
     void create_authenticated_returns201() throws Exception {
         when(orderService.create(any())).thenReturn(mock(OrderResponse.class));
 
@@ -72,6 +74,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("POST /orders/full com lista de itens vazia retorna 400 por falha de validação")
     void createFull_emptyItems_returns400() throws Exception {
         mockMvc.perform(post("/orders/full")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -83,6 +86,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("POST /orders/full com itens válidos cria o pedido completo e retorna 201")
     void createFull_validBody_returns201() throws Exception {
         when(orderService.createFull(any())).thenReturn(mock(OrderDetailResponse.class));
 
@@ -98,6 +102,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("PUT /orders/{id} (aplicar desconto) como USER comum é negado com 403")
     void applyDiscount_asUser_returns403() throws Exception {
         mockMvc.perform(put("/orders/{id}", UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -107,6 +112,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("PUT /orders/{id} (aplicar desconto) como ADMIN retorna 200")
     void applyDiscount_asAdmin_returns200() throws Exception {
         when(orderService.applyDiscount(any(), any())).thenReturn(mock(OrderUpdateResponse.class));
 
@@ -118,6 +124,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("PUT /orders/{id} mapeia BusinessException para 422")
     void applyDiscount_businessException_returns422() throws Exception {
         when(orderService.applyDiscount(any(), any()))
                 .thenThrow(new BusinessException("Desconto excede o subtotal do pedido"));
@@ -130,6 +137,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("GET /orders/{id}/pdf retorna 200 com Content-Type application/pdf")
     void exportPdf_authenticated_returnsApplicationPdf() throws Exception {
         byte[] pdfBytes = {0x25, 0x50, 0x44, 0x46};
         when(orderService.exportPdf(any())).thenReturn(pdfBytes);
@@ -140,6 +148,7 @@ class OrderControllerTest {
     }
 
     @Test
+    @DisplayName("GET /orders sem autenticação é bloqueado com erro 4xx")
     void findAll_anonymous_returns4xx() throws Exception {
         mockMvc.perform(get("/orders"))
                 .andExpect(status().is4xxClientError());
@@ -147,6 +156,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("DELETE /orders/{id} como ADMIN retorna 200")
     void delete_asAdmin_returns200() throws Exception {
         when(orderService.delete(any())).thenReturn(new MessageResponse("Pedido excluído com sucesso"));
 
@@ -156,6 +166,7 @@ class OrderControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("DELETE /orders/{id} como USER comum é negado com 403")
     void delete_asUser_returns403() throws Exception {
         mockMvc.perform(delete("/orders/{id}", UUID.randomUUID()))
                 .andExpect(status().isForbidden());

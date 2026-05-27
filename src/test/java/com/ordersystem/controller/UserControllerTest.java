@@ -13,6 +13,7 @@ import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserDetailsServiceImpl;
 import com.ordersystem.service.TokenBlacklistService;
 import com.ordersystem.service.UserService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -59,6 +60,7 @@ class UserControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("GET /users como ADMIN retorna 200 com a lista de usuários")
     void findAll_asAdmin_returns200() throws Exception {
         when(userService.findAll(any())).thenReturn(Page.empty());
 
@@ -68,6 +70,7 @@ class UserControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("GET /users como USER comum é negado com 403")
     void findAll_asUser_returns403() throws Exception {
         mockMvc.perform(get("/users"))
                 .andExpect(status().isForbidden());
@@ -75,6 +78,7 @@ class UserControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("POST /users como ADMIN com dados válidos cria o usuário e retorna 201")
     void create_asAdmin_validBody_returns201() throws Exception {
         UserResponse response = new UserResponse(UUID.randomUUID(), "new@test.com", "New User", Role.USER);
         when(userService.create(any())).thenReturn(response);
@@ -91,6 +95,7 @@ class UserControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("POST /users como ADMIN com corpo inválido retorna 400 por falha de validação")
     void create_asAdmin_invalidBody_returns400() throws Exception {
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -100,6 +105,7 @@ class UserControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("POST /users como USER comum é negado com 403 mesmo com corpo válido")
     void create_asUser_returns403() throws Exception {
         mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -113,6 +119,7 @@ class UserControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("DELETE /users/{id} como ADMIN retorna 200")
     void delete_asAdmin_returns200() throws Exception {
         when(userService.delete(any())).thenReturn(new MessageResponse("Usuário excluído com sucesso"));
 
@@ -122,6 +129,7 @@ class UserControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("DELETE /users/{id} como USER comum é negado com 403")
     void delete_asUser_returns403() throws Exception {
         mockMvc.perform(delete("/users/{id}", UUID.randomUUID()))
                 .andExpect(status().isForbidden());

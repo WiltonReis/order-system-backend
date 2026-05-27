@@ -15,6 +15,7 @@ import com.ordersystem.security.UserPrincipal;
 import org.junit.jupiter.api.AfterEach;
 import org.mapstruct.factory.Mappers;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@DisplayName("ProductService — criação, consulta, atualização e exclusão de produtos")
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
@@ -92,8 +94,8 @@ class ProductServiceTest {
     // --- create ---
 
     @Test
+    @DisplayName("cria produto com sucesso e retorna response")
     void shouldCreateProductSuccessfully() {
-        // Given
         UUID id = UUID.randomUUID();
         ProductRequest request = new ProductRequest();
         request.setName("Widget");
@@ -101,10 +103,8 @@ class ProductServiceTest {
         request.setPrice(new BigDecimal("10.00"));
         when(productRepository.save(any(Product.class))).thenReturn(buildProduct(id, "Widget", new BigDecimal("10.00")));
 
-        // When
         ProductResponse response = productService.create(request);
 
-        // Then
         assertThat(response.getId()).isEqualTo(id);
         assertThat(response.getName()).isEqualTo("Widget");
         assertThat(response.getPrice()).isEqualByComparingTo("10.00");
@@ -112,33 +112,29 @@ class ProductServiceTest {
     }
 
     @Test
+    @DisplayName("define createdByName a partir do SecurityContext")
     void shouldSetCreatedByNameFromSecurityContext() {
-        // Given
         ProductRequest request = new ProductRequest();
         request.setName("Gadget");
         request.setPrice(new BigDecimal("5.00"));
         when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         productService.create(request);
 
-        // Then
         verify(productRepository).save(argThat(p -> "admin".equals(p.getCreatedByName())));
     }
 
     @Test
+    @DisplayName("mapeia todos os campos na criação do produto")
     void shouldMapAllFieldsOnCreate() {
-        // Given
         ProductRequest request = new ProductRequest();
         request.setName("Tool");
         request.setDescription("A tool");
         request.setPrice(new BigDecimal("99.99"));
         when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         productService.create(request);
 
-        // Then
         verify(productRepository).save(argThat(p ->
                 "Tool".equals(p.getName())
                         && "A tool".equals(p.getDescription())
@@ -149,68 +145,60 @@ class ProductServiceTest {
     // --- findAll ---
 
     @Test
+    @DisplayName("retorna todos os produtos")
     void shouldReturnAllProducts() {
-        // Given
         UUID id = UUID.randomUUID();
         when(productRepository.findAll()).thenReturn(List.of(buildProduct(id, "Widget", new BigDecimal("5.00"))));
 
-        // When
         List<ProductResponse> result = productService.findAll();
 
-        // Then
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getName()).isEqualTo("Widget");
         assertThat(result.get(0).getId()).isEqualTo(id);
     }
 
     @Test
+    @DisplayName("retorna lista vazia quando não há produtos")
     void shouldReturnEmptyListWhenNoProductsExist() {
-        // Given
         when(productRepository.findAll()).thenReturn(List.of());
 
-        // When
         List<ProductResponse> result = productService.findAll();
 
-        // Then
         assertThat(result).isEmpty();
     }
 
     // --- findAllPaged ---
 
     @Test
+    @DisplayName("retorna página de produtos")
     void shouldReturnPagedProducts() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         UUID id = UUID.randomUUID();
         Page<Product> page = new PageImpl<>(List.of(buildProduct(id, "Gadget", new BigDecimal("20.00"))), pageable, 1);
         when(productRepository.findAll(pageable)).thenReturn(page);
 
-        // When
         Page<ProductResponse> result = productService.findAllPaged(pageable);
 
-        // Then
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().get(0).getName()).isEqualTo("Gadget");
     }
 
     @Test
+    @DisplayName("retorna página vazia quando não há produtos paginados")
     void shouldReturnEmptyPageWhenNoProductsExistPaged() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         when(productRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        // When
         Page<ProductResponse> result = productService.findAllPaged(pageable);
 
-        // Then
         assertThat(result.getContent()).isEmpty();
     }
 
     // --- update ---
 
     @Test
+    @DisplayName("atualiza produto com sucesso")
     void shouldUpdateProductSuccessfully() {
-        // Given
         UUID id = UUID.randomUUID();
         Product existing = buildProduct(id, "Old Name", new BigDecimal("10.00"));
         ProductUpdateRequest request = new ProductUpdateRequest();
@@ -221,17 +209,15 @@ class ProductServiceTest {
         when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
         when(productRepository.save(existing)).thenReturn(existing);
 
-        // When
         ProductResponse response = productService.update(id, request);
 
-        // Then
         assertThat(response.getName()).isEqualTo("New Name");
         assertThat(response.getPrice()).isEqualByComparingTo("15.00");
     }
 
     @Test
+    @DisplayName("atualiza todos os campos do produto")
     void shouldUpdateAllFieldsOnProduct() {
-        // Given
         UUID id = UUID.randomUUID();
         Product existing = buildProduct(id, "Old", new BigDecimal("1.00"));
         ProductUpdateRequest request = new ProductUpdateRequest();
@@ -242,25 +228,22 @@ class ProductServiceTest {
         when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
         when(productRepository.save(existing)).thenReturn(existing);
 
-        // When
         productService.update(id, request);
 
-        // Then
         assertThat(existing.getName()).isEqualTo("New");
         assertThat(existing.getDescription()).isEqualTo("New desc");
         assertThat(existing.getPrice()).isEqualByComparingTo("2.00");
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao atualizar produto inexistente")
     void shouldThrowWhenUpdatingNonExistentProduct() {
-        // Given
         UUID id = UUID.randomUUID();
         ProductUpdateRequest request = new ProductUpdateRequest();
         request.setName("X");
         request.setPrice(new BigDecimal("1.00"));
         when(productRepository.findByIdFiltered(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> productService.update(id, request))
                 .isInstanceOf(ResourceNotFoundException.class);
         verify(productRepository, never()).save(any());
@@ -269,28 +252,25 @@ class ProductServiceTest {
     // --- updatePrice ---
 
     @Test
+    @DisplayName("atualiza preço do produto com sucesso")
     void shouldUpdatePriceSuccessfully() {
-        // Given
         UUID id = UUID.randomUUID();
         Product existing = buildProduct(id, "Widget", new BigDecimal("10.00"));
         when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
         when(productRepository.save(existing)).thenReturn(existing);
 
-        // When
         ProductResponse response = productService.updatePrice(id, new BigDecimal("25.00"));
 
-        // Then
         assertThat(response.getPrice()).isEqualByComparingTo("25.00");
         assertThat(existing.getPrice()).isEqualByComparingTo("25.00");
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao atualizar preço de produto inexistente")
     void shouldThrowWhenUpdatingPriceOfNonExistentProduct() {
-        // Given
         UUID id = UUID.randomUUID();
         when(productRepository.findByIdFiltered(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> productService.updatePrice(id, new BigDecimal("5.00")))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -298,27 +278,24 @@ class ProductServiceTest {
     // --- delete ---
 
     @Test
+    @DisplayName("exclui produto com sucesso e retorna mensagem de confirmação")
     void shouldDeleteProductSuccessfully() {
-        // Given
         UUID id = UUID.randomUUID();
         Product existing = buildProduct(id, "Widget", new BigDecimal("10.00"));
         when(productRepository.findByIdFiltered(id)).thenReturn(Optional.of(existing));
 
-        // When
         MessageResponse response = productService.delete(id);
 
-        // Then
-        assertThat(response.getMessage()).isEqualTo("Product deleted successfully");
+        assertThat(response.getMessage()).isEqualTo("Produto excluído com sucesso");
         verify(productRepository).deleteById(id);
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao excluir produto inexistente")
     void shouldThrowWhenDeletingNonExistentProduct() {
-        // Given
         UUID id = UUID.randomUUID();
         when(productRepository.findByIdFiltered(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> productService.delete(id))
                 .isInstanceOf(ResourceNotFoundException.class);
         verify(productRepository, never()).deleteById(any());

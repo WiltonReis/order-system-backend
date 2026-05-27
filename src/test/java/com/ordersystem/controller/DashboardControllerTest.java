@@ -10,6 +10,7 @@ import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserDetailsServiceImpl;
 import com.ordersystem.service.DashboardService;
 import com.ordersystem.service.TokenBlacklistService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -50,6 +51,7 @@ class DashboardControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("GET /dashboard autenticado retorna 200 com as métricas")
     void getDashboard_authenticated_returns200() throws Exception {
         when(dashboardService.getDashboard(anyString(), any(), any()))
                 .thenReturn(mock(DashboardResponse.class));
@@ -59,6 +61,7 @@ class DashboardControllerTest {
     }
 
     @Test
+    @DisplayName("GET /dashboard sem autenticação é bloqueado com erro 4xx")
     void getDashboard_anonymous_returns4xx() throws Exception {
         mockMvc.perform(get("/dashboard"))
                 .andExpect(status().is4xxClientError());

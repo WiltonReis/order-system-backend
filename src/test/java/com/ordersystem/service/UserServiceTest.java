@@ -18,6 +18,7 @@ import com.ordersystem.validation.UserValidator;
 import org.mapstruct.factory.Mappers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@DisplayName("UserService — criação, consulta, atualização e exclusão de usuários")
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
@@ -85,6 +87,7 @@ class UserServiceTest {
     // --- create ---
 
     @Test
+    @DisplayName("cria usuário com sucesso e retorna response")
     void shouldCreateUserSuccessfully() {
         UUID id = UUID.randomUUID();
         UserRequest request = new UserRequest();
@@ -107,6 +110,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("lança ConflictException ao criar usuário com e-mail já cadastrado")
     void shouldThrowWhenCreatingUserWithAlreadyTakenEmail() {
         UserRequest request = new UserRequest();
         request.setEmail("alice@test.local");
@@ -123,6 +127,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("codifica a senha antes de persistir")
     void shouldEncodePasswordOnCreate() {
         UserRequest request = new UserRequest();
         request.setEmail("bob@test.local");
@@ -142,6 +147,7 @@ class UserServiceTest {
     // --- findAll ---
 
     @Test
+    @DisplayName("retorna página de usuários")
     void shouldReturnPagedUsers() {
         Pageable pageable = PageRequest.of(0, 10);
         UUID id = UUID.randomUUID();
@@ -156,6 +162,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("retorna página vazia quando não há usuários")
     void shouldReturnEmptyPageWhenNoUsers() {
         Pageable pageable = PageRequest.of(0, 10);
         when(userRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
@@ -169,6 +176,7 @@ class UserServiceTest {
     // --- update ---
 
     @Test
+    @DisplayName("atualiza usuário sem alterar senha quando senha está em branco")
     void shouldUpdateUserWithoutChangingPasswordWhenPasswordIsBlank() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
@@ -188,6 +196,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("atualiza usuário sem alterar senha quando senha é nula")
     void shouldUpdateUserWithoutChangingPasswordWhenPasswordIsNull() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
@@ -206,6 +215,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("codifica e atualiza senha quando nova senha é fornecida")
     void shouldEncodeAndUpdatePasswordWhenNewPasswordProvided() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
@@ -226,6 +236,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("lança ConflictException ao atualizar para e-mail já cadastrado")
     void shouldThrowWhenUpdatingToAlreadyTakenEmail() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
@@ -244,6 +255,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("não verifica disponibilidade do e-mail quando ele não foi alterado")
     void shouldNotCheckEmailAvailabilityWhenEmailUnchanged() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
@@ -261,6 +273,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao atualizar usuário inexistente")
     void shouldThrowWhenUpdatingNonExistentUser() {
         UUID id = UUID.randomUUID();
         UserUpdateRequest request = new UserUpdateRequest();
@@ -274,6 +287,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("lança ForbiddenOperationException ao tentar atualizar ADMIN_MASTER")
     void shouldThrowWhenUpdatingAdminMasterUser() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
@@ -294,6 +308,7 @@ class UserServiceTest {
     // --- updateRole ---
 
     @Test
+    @DisplayName("atualiza role do usuário para ADMIN")
     void shouldUpdateUserRoleToAdmin() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);
@@ -307,6 +322,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("atualiza role do usuário para USER")
     void shouldUpdateUserRoleToUser() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "admin@test.local", "Admin", Role.ADMIN);
@@ -319,6 +335,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao atualizar role de usuário inexistente")
     void shouldThrowWhenUpdatingRoleOfNonExistentUser() {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
@@ -328,6 +345,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("lança ForbiddenOperationException ao tentar alterar role do ADMIN_MASTER")
     void shouldThrowWhenUpdatingRoleOfAdminMasterUser() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
@@ -343,6 +361,7 @@ class UserServiceTest {
     // --- delete ---
 
     @Test
+    @DisplayName("exclui usuário com sucesso e retorna mensagem de confirmação")
     void shouldDeleteUserSuccessfully() {
         UUID id = UUID.randomUUID();
         User user = buildUser(id, "alice@test.local", "Alice", Role.USER);
@@ -350,11 +369,12 @@ class UserServiceTest {
 
         MessageResponse response = userService.delete(id);
 
-        assertThat(response.getMessage()).isEqualTo("User deleted successfully");
+        assertThat(response.getMessage()).isEqualTo("Usuário excluído com sucesso");
         verify(userRepository).delete(user);
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao excluir usuário inexistente")
     void shouldThrowWhenDeletingNonExistentUser() {
         UUID id = UUID.randomUUID();
         when(userRepository.findById(id)).thenReturn(Optional.empty());
@@ -365,6 +385,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("lança ForbiddenOperationException ao excluir ADMIN_MASTER")
     void shouldThrowWhenDeletingAdminMasterUser() {
         UUID id = UUID.randomUUID();
         User master = buildUser(id, "master@test.local", "Master", Role.ADMIN_MASTER);
@@ -378,6 +399,7 @@ class UserServiceTest {
     }
 
     @Test
+    @DisplayName("persiste a nova role ao chamar updateRole")
     void shouldPersistNewRoleOnUpdateRole() {
         UUID id = UUID.randomUUID();
         User existing = buildUser(id, "alice@test.local", "Alice", Role.USER);

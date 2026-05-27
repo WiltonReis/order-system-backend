@@ -27,6 +27,7 @@ import com.ordersystem.validation.OrderValidator;
 import org.mapstruct.factory.Mappers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -55,6 +56,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@DisplayName("OrderService — criação, consulta, status e itens de pedido")
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
 
@@ -156,8 +158,8 @@ class OrderServiceTest {
     // --- create ---
 
     @Test
+    @DisplayName("cria pedido com nome do cliente com sucesso")
     void shouldCreateOrderWithCustomerNameSuccessfully() {
-        // Given
         User user = buildUser("operator@test.com");
         OrderRequest request = new OrderRequest();
         request.setCustomerName("  John Doe  ");
@@ -167,17 +169,15 @@ class OrderServiceTest {
         saved.setCustomerName("John Doe");
         when(orderRepository.save(any(Order.class))).thenReturn(saved);
 
-        // When
         OrderResponse response = orderService.create(request);
 
-        // Then
         assertThat(response.getStatus()).isEqualTo(OrderStatus.OPEN);
         assertThat(response.getCustomerName()).isEqualTo("John Doe");
     }
 
     @Test
+    @DisplayName("remove espaços do nome do cliente antes de persistir")
     void shouldTrimCustomerNameBeforePersisting() {
-        // Given
         User user = buildUser("operator@test.com");
         OrderRequest request = new OrderRequest();
         request.setCustomerName("  Alice  ");
@@ -185,31 +185,27 @@ class OrderServiceTest {
         when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(2L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         orderService.create(request);
 
-        // Then
         verify(orderRepository).save(argThat(o -> "Alice".equals(o.getCustomerName())));
     }
 
     @Test
+    @DisplayName("cria pedido sem nome do cliente quando não informado")
     void shouldCreateOrderWithoutCustomerNameWhenNotProvided() {
-        // Given
         User user = buildUser("operator@test.com");
         when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
         when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(3L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         orderService.create(new OrderRequest());
 
-        // Then
         verify(orderRepository).save(argThat(o -> o.getCustomerName() == null));
     }
 
     @Test
+    @DisplayName("ignora nome do cliente quando contém apenas espaços")
     void shouldIgnoreBlankCustomerName() {
-        // Given
         User user = buildUser("operator@test.com");
         OrderRequest request = new OrderRequest();
         request.setCustomerName("   ");
@@ -217,62 +213,54 @@ class OrderServiceTest {
         when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(4L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         orderService.create(request);
 
-        // Then
         verify(orderRepository).save(argThat(o -> o.getCustomerName() == null));
     }
 
     @Test
+    @DisplayName("cria pedido com request nulo sem lançar exceção")
     void shouldCreateOrderWithNullRequest() {
-        // Given
         User user = buildUser("operator@test.com");
         when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
         when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(5L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When / Then — não deve lançar exceção
         orderService.create(null);
         verify(orderRepository).save(argThat(o -> o.getCustomerName() == null));
     }
 
     @Test
+    @DisplayName("formata código do pedido com padding de 8 dígitos")
     void shouldFormatOrderCodeWithEightDigitPadding() {
-        // Given — código sequencial por tenant com padding de 8 dígitos
         User user = buildUser("operator@test.com");
         when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
         when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(7L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         orderService.create(new OrderRequest());
 
-        // Then
         verify(orderRepository).save(argThat(o -> "00000007".equals(o.getOrderCode())));
     }
 
     @Test
+    @DisplayName("define status OPEN ao criar pedido")
     void shouldSetOrderStatusAsOpenOnCreate() {
-        // Given
         User user = buildUser("operator@test.com");
         when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
         when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(1L);
         when(orderRepository.save(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // When
         orderService.create(new OrderRequest());
 
-        // Then
         verify(orderRepository).save(argThat(o -> OrderStatus.OPEN.equals(o.getStatus())));
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao criar pedido com usuário desconhecido")
     void shouldThrowWhenCreatingOrderWithUnknownUser() {
-        // Given
         when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> orderService.create(new OrderRequest()))
                 .isInstanceOf(ResourceNotFoundException.class);
         verify(orderRepository, never()).save(any());
@@ -281,28 +269,25 @@ class OrderServiceTest {
     // --- findById ---
 
     @Test
+    @DisplayName("retorna detalhes do pedido pelo ID")
     void shouldFindOrderByIdSuccessfully() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
 
-        // When
         OrderDetailResponse response = orderService.findById(order.getId());
 
-        // Then
         assertThat(response.getId()).isEqualTo(order.getId());
         assertThat(response.getStatus()).isEqualTo(OrderStatus.OPEN);
         assertThat(response.getItems()).isEmpty();
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao buscar pedido inexistente")
     void shouldThrowWhenOrderNotFoundById() {
-        // Given
         UUID id = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> orderService.findById(id))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -310,39 +295,35 @@ class OrderServiceTest {
     // --- findAll / findActive / findHistory ---
 
     @Test
+    @DisplayName("retorna página de pedidos")
     void shouldReturnPagedOrders() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         User user = buildUser("operator@test.com");
         Page<Order> page = new PageImpl<>(List.of(buildOpenOrder(user)), pageable, 1);
         when(orderRepository.findAllWithUsersPaged(pageable)).thenReturn(page);
 
-        // When
         Page<OrderListResponse> result = orderService.findAll(pageable);
 
-        // Then
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().get(0).getStatus()).isEqualTo(OrderStatus.OPEN);
     }
 
     @Test
+    @DisplayName("retorna pedidos ativos com status OPEN")
     void shouldReturnActiveOrders() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         User user = buildUser("operator@test.com");
         Page<Order> page = new PageImpl<>(List.of(buildOpenOrder(user)), pageable, 1);
         when(orderRepository.findAllWithUsersByStatusPaged(OrderStatus.OPEN, pageable)).thenReturn(page);
 
-        // When
         Page<OrderListResponse> result = orderService.findActive(pageable);
 
-        // Then
         assertThat(result.getContent().get(0).getStatus()).isEqualTo(OrderStatus.OPEN);
     }
 
     @Test
+    @DisplayName("retorna histórico com pedidos COMPLETED e CANCELED")
     void shouldReturnOrderHistoryWithCompletedAndCanceled() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         User user = buildUser("operator@test.com");
         Order completed = buildOpenOrder(user);
@@ -351,18 +332,16 @@ class OrderServiceTest {
         when(orderRepository.findAllWithUsersByStatusInPaged(
                 List.of(OrderStatus.COMPLETED, OrderStatus.CANCELED), pageable)).thenReturn(page);
 
-        // When
         Page<OrderListResponse> result = orderService.findHistory(pageable);
 
-        // Then
         assertThat(result.getContent().get(0).getStatus()).isEqualTo(OrderStatus.COMPLETED);
     }
 
     // --- findAllDetails ---
 
     @Test
+    @DisplayName("retorna todos os detalhes de pedidos paginados")
     void shouldReturnAllOrderDetails() {
-        // Given
         Pageable pageable = PageRequest.of(0, 10);
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
@@ -371,24 +350,20 @@ class OrderServiceTest {
         when(orderRepository.findAllIdsPaged(pageable)).thenReturn(idsPage);
         when(orderRepository.findAllWithDetailsByIds(List.of(orderId))).thenReturn(List.of(order));
 
-        // When
         Page<OrderDetailResponse> result = orderService.findAllDetails(pageable);
 
-        // Then
         assertThat(result.getTotalElements()).isEqualTo(1);
         assertThat(result.getContent().get(0).getId()).isEqualTo(orderId);
     }
 
     @Test
+    @DisplayName("retorna página vazia sem chamar findAllWithDetailsByIds quando não há IDs")
     void shouldReturnEmptyPageWhenNoOrderIds() {
-        // Given — retorna vazio sem chamar findAllWithDetailsByIds quando não há IDs
         Pageable pageable = PageRequest.of(0, 10);
         when(orderRepository.findAllIdsPaged(pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        // When
         Page<OrderDetailResponse> result = orderService.findAllDetails(pageable);
 
-        // Then
         assertThat(result.getContent()).isEmpty();
         verify(orderRepository, never()).findAllWithDetailsByIds(any());
     }
@@ -396,8 +371,8 @@ class OrderServiceTest {
     // --- applyDiscount ---
 
     @Test
+    @DisplayName("aplica desconto em pedido aberto e recalcula total")
     void shouldApplyDiscountToOpenOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("100.00"));
@@ -409,17 +384,15 @@ class OrderServiceTest {
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         OrderUpdateResponse response = orderService.applyDiscount(order.getId(), request);
 
-        // Then
         assertThat(response.getDiscount()).isEqualByComparingTo("20.00");
         assertThat(response.getTotal()).isEqualByComparingTo("180.00");
     }
 
     @Test
+    @DisplayName("lança BusinessException quando desconto é maior ou igual ao subtotal")
     void shouldThrowWhenDiscountExceedsSubtotal() {
-        // Given — desconto >= subtotal é rejeitado pelo OrderValidator
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("10.00"));
@@ -429,15 +402,14 @@ class OrderServiceTest {
         request.setDiscount(new BigDecimal("50.00"));
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.applyDiscount(order.getId(), request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("subtotal");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao aplicar desconto em pedido COMPLETED")
     void shouldThrowWhenApplyingDiscountToCompletedOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
@@ -445,15 +417,14 @@ class OrderServiceTest {
         request.setDiscount(new BigDecimal("10.00"));
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.applyDiscount(order.getId(), request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("abertos");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao aplicar desconto em pedido CANCELED")
     void shouldThrowWhenApplyingDiscountToCanceledOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
@@ -461,20 +432,18 @@ class OrderServiceTest {
         request.setDiscount(new BigDecimal("5.00"));
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.applyDiscount(order.getId(), request))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao aplicar desconto em pedido inexistente")
     void shouldThrowWhenOrderNotFoundForDiscount() {
-        // Given
         UUID id = UUID.randomUUID();
         OrderUpdateRequest request = new OrderUpdateRequest();
         request.setDiscount(BigDecimal.TEN);
         when(orderRepository.findByIdWithDetails(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> orderService.applyDiscount(id, request))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -482,72 +451,65 @@ class OrderServiceTest {
     // --- completeOrder ---
 
     @Test
+    @DisplayName("finaliza pedido aberto com sucesso")
     void shouldCompleteOpenOrderSuccessfully() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         OrderResponse response = orderService.completeOrder(order.getId());
 
-        // Then
         assertThat(response.getStatus()).isEqualTo(OrderStatus.COMPLETED);
         assertThat(order.getCompletedAt()).isNotNull();
         assertThat(order.getCompletedByName()).isEqualTo("operator");
     }
 
     @Test
+    @DisplayName("define completedByName a partir do SecurityContext")
     void shouldSetCompletedByNameFromSecurityContext() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         orderService.completeOrder(order.getId());
 
-        // Then
         assertThat(order.getCompletedByName()).isEqualTo("operator");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao finalizar pedido já COMPLETED")
     void shouldThrowWhenCompletingAlreadyCompletedOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.completeOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("finalizado");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao finalizar pedido CANCELED")
     void shouldThrowWhenCompletingCanceledOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.completeOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("abertos");
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao finalizar pedido inexistente")
     void shouldThrowWhenOrderNotFoundForCompletion() {
-        // Given
         UUID id = UUID.randomUUID();
         when(orderRepository.findById(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> orderService.completeOrder(id))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -555,72 +517,65 @@ class OrderServiceTest {
     // --- cancelOrder ---
 
     @Test
+    @DisplayName("cancela pedido aberto com sucesso")
     void shouldCancelOpenOrderSuccessfully() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         OrderResponse response = orderService.cancelOrder(order.getId());
 
-        // Then
         assertThat(response.getStatus()).isEqualTo(OrderStatus.CANCELED);
         assertThat(order.getCanceledAt()).isNotNull();
         assertThat(order.getCanceledByName()).isEqualTo("operator");
     }
 
     @Test
+    @DisplayName("define canceledByName a partir do SecurityContext")
     void shouldSetCanceledByNameFromSecurityContext() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         orderService.cancelOrder(order.getId());
 
-        // Then
         assertThat(order.getCanceledByName()).isEqualTo("operator");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao cancelar pedido já CANCELED")
     void shouldThrowWhenCancelingAlreadyCanceledOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.cancelOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("cancelado");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao cancelar pedido COMPLETED")
     void shouldThrowWhenCancelingCompletedOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.cancelOrder(order.getId()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("abertos");
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao cancelar pedido inexistente")
     void shouldThrowWhenOrderNotFoundForCancellation() {
-        // Given
         UUID id = UUID.randomUUID();
         when(orderRepository.findById(id)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> orderService.cancelOrder(id))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -628,26 +583,23 @@ class OrderServiceTest {
     // --- delete ---
 
     @Test
+    @DisplayName("exclui pedido com sucesso e retorna mensagem de confirmação")
     void shouldDeleteOrderSuccessfully() {
-        // Given
         UUID id = UUID.randomUUID();
         when(orderRepository.existsById(id)).thenReturn(true);
 
-        // When
         MessageResponse response = orderService.delete(id);
 
-        // Then
-        assertThat(response.getMessage()).isEqualTo("Order deleted successfully");
+        assertThat(response.getMessage()).isEqualTo("Pedido excluído com sucesso");
         verify(orderRepository).deleteById(id);
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao excluir pedido inexistente")
     void shouldThrowWhenDeletingNonExistentOrder() {
-        // Given
         UUID id = UUID.randomUUID();
         when(orderRepository.existsById(id)).thenReturn(false);
 
-        // When / Then
         assertThatThrownBy(() -> orderService.delete(id))
                 .isInstanceOf(ResourceNotFoundException.class);
         verify(orderRepository, never()).deleteById(any());
@@ -656,8 +608,8 @@ class OrderServiceTest {
     // --- addItem ---
 
     @Test
+    @DisplayName("adiciona item em pedido aberto com sucesso")
     void shouldAddItemToOpenOrderSuccessfully() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Product A", new BigDecimal("50.00"));
@@ -669,10 +621,8 @@ class OrderServiceTest {
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         OrderItemResponse response = orderService.addItem(order.getId(), request);
 
-        // Then
         assertThat(response.getQuantity()).isEqualTo(3);
         assertThat(response.getPrice()).isEqualByComparingTo("50.00");
         assertThat(response.getProductName()).isEqualTo("Product A");
@@ -680,8 +630,8 @@ class OrderServiceTest {
     }
 
     @Test
+    @DisplayName("recalcula total do pedido após adicionar item")
     void shouldRecalculateTotalAfterAddingItem() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("30.00"));
@@ -693,16 +643,14 @@ class OrderServiceTest {
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         orderService.addItem(order.getId(), request);
 
-        // Then
         assertThat(order.getTotal()).isEqualByComparingTo("60.00");
     }
 
     @Test
+    @DisplayName("registra snapshot do preço do produto no momento da adição")
     void shouldSnapshotProductPriceAtTimeOfAdding() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("45.00"));
@@ -714,16 +662,14 @@ class OrderServiceTest {
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         OrderItemResponse response = orderService.addItem(order.getId(), request);
 
-        // Then — preço é snapshot do produto no momento da adição
         assertThat(response.getPrice()).isEqualByComparingTo("45.00");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao adicionar item em pedido COMPLETED")
     void shouldThrowWhenAddingItemToCompletedOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
@@ -733,15 +679,14 @@ class OrderServiceTest {
         request.setProductId(UUID.randomUUID());
         request.setQuantity(1);
 
-        // When / Then
         assertThatThrownBy(() -> orderService.addItem(order.getId(), request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("abertos");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao adicionar item em pedido CANCELED")
     void shouldThrowWhenAddingItemToCanceledOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.CANCELED);
@@ -751,14 +696,13 @@ class OrderServiceTest {
         request.setProductId(UUID.randomUUID());
         request.setQuantity(1);
 
-        // When / Then
         assertThatThrownBy(() -> orderService.addItem(order.getId(), request))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao adicionar item em pedido inexistente")
     void shouldThrowWhenAddingItemToNonExistentOrder() {
-        // Given
         UUID orderId = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.empty());
 
@@ -766,14 +710,13 @@ class OrderServiceTest {
         request.setProductId(UUID.randomUUID());
         request.setQuantity(1);
 
-        // When / Then
         assertThatThrownBy(() -> orderService.addItem(orderId, request))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao adicionar produto inexistente ao pedido")
     void shouldThrowWhenAddingNonExistentProduct() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         UUID productId = UUID.randomUUID();
@@ -784,7 +727,6 @@ class OrderServiceTest {
         request.setProductId(productId);
         request.setQuantity(1);
 
-        // When / Then
         assertThatThrownBy(() -> orderService.addItem(order.getId(), request))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -792,8 +734,8 @@ class OrderServiceTest {
     // --- updateItem ---
 
     @Test
+    @DisplayName("atualiza quantidade do item com sucesso")
     void shouldUpdateItemQuantitySuccessfully() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("20.00"));
@@ -807,17 +749,15 @@ class OrderServiceTest {
         when(orderItemRepository.save(item)).thenReturn(item);
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         OrderItemUpdateResponse response = orderService.updateItem(order.getId(), item.getId(), request);
 
-        // Then
         assertThat(response.getQuantity()).isEqualTo(5);
         assertThat(item.getQuantity()).isEqualTo(5);
     }
 
     @Test
+    @DisplayName("recalcula total do pedido após atualizar quantidade do item")
     void shouldRecalculateTotalAfterUpdatingItem() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("10.00"));
@@ -831,16 +771,14 @@ class OrderServiceTest {
         when(orderItemRepository.save(item)).thenReturn(item);
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         orderService.updateItem(order.getId(), item.getId(), request);
 
-        // Then
         assertThat(order.getTotal()).isEqualByComparingTo("40.00");
     }
 
     @Test
+    @DisplayName("lança BusinessException ao atualizar item de pedido não aberto")
     void shouldThrowWhenUpdatingItemOnNonOpenOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
@@ -850,15 +788,14 @@ class OrderServiceTest {
         OrderItemUpdateRequest request = new OrderItemUpdateRequest();
         request.setQuantity(2);
 
-        // When / Then
         assertThatThrownBy(() -> orderService.updateItem(order.getId(), itemId, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("abertos");
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao atualizar item inexistente")
     void shouldThrowWhenUpdatingNonExistentItem() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         UUID itemId = UUID.randomUUID();
@@ -868,7 +805,6 @@ class OrderServiceTest {
         OrderItemUpdateRequest request = new OrderItemUpdateRequest();
         request.setQuantity(2);
 
-        // When / Then
         assertThatThrownBy(() -> orderService.updateItem(order.getId(), itemId, request))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -876,8 +812,8 @@ class OrderServiceTest {
     // --- removeItem ---
 
     @Test
+    @DisplayName("remove item de pedido aberto com sucesso")
     void shouldRemoveItemFromOpenOrderSuccessfully() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("10.00"));
@@ -888,17 +824,15 @@ class OrderServiceTest {
         when(orderItemRepository.findByIdAndOrderId(item.getId(), order.getId())).thenReturn(Optional.of(item));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         MessageResponse response = orderService.removeItem(order.getId(), item.getId());
 
-        // Then
-        assertThat(response.getMessage()).isEqualTo("Item removed");
+        assertThat(response.getMessage()).isEqualTo("Item removido");
         assertThat(order.getItems()).isEmpty();
     }
 
     @Test
+    @DisplayName("recalcula total para zero após remover último item")
     void shouldRecalculateTotalToZeroAfterRemovingLastItem() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         Product product = buildProduct("Item", new BigDecimal("50.00"));
@@ -910,50 +844,45 @@ class OrderServiceTest {
         when(orderItemRepository.findByIdAndOrderId(item.getId(), order.getId())).thenReturn(Optional.of(item));
         when(orderRepository.save(order)).thenReturn(order);
 
-        // When
         orderService.removeItem(order.getId(), item.getId());
 
-        // Then
         assertThat(order.getTotal()).isEqualByComparingTo("0.00");
         assertThat(order.getItems()).isEmpty();
     }
 
     @Test
+    @DisplayName("lança BusinessException ao remover item de pedido não aberto")
     void shouldThrowWhenRemovingItemFromNonOpenOrder() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         order.setStatus(OrderStatus.COMPLETED);
         UUID itemId = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
 
-        // When / Then
         assertThatThrownBy(() -> orderService.removeItem(order.getId(), itemId))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("abertos");
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao remover item inexistente")
     void shouldThrowWhenRemovingNonExistentItem() {
-        // Given
         User user = buildUser("operator@test.com");
         Order order = buildOpenOrder(user);
         UUID itemId = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
         when(orderItemRepository.findByIdAndOrderId(itemId, order.getId())).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> orderService.removeItem(order.getId(), itemId))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
+    @DisplayName("lança ResourceNotFoundException ao remover item de pedido inexistente")
     void shouldThrowWhenRemovingItemFromNonExistentOrder() {
-        // Given
         UUID orderId = UUID.randomUUID();
         when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.empty());
 
-        // When / Then
         assertThatThrownBy(() -> orderService.removeItem(orderId, UUID.randomUUID()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }

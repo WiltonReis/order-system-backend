@@ -12,6 +12,7 @@ import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserDetailsServiceImpl;
 import com.ordersystem.service.ProductService;
 import com.ordersystem.service.TokenBlacklistService;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -61,6 +62,7 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("GET /products autenticado retorna 200 com a lista paginada")
     void findAllPaged_authenticated_returns200() throws Exception {
         when(productService.findAllPaged(any())).thenReturn(Page.empty());
 
@@ -70,6 +72,7 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("GET /products/all autenticado retorna 200 com a lista completa")
     void findAll_authenticated_returns200() throws Exception {
         when(productService.findAll()).thenReturn(List.of());
 
@@ -79,6 +82,7 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("POST /products como USER comum é negado com 403 mesmo com corpo válido")
     void create_asUser_returns403() throws Exception {
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -91,6 +95,7 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("POST /products como ADMIN com dados válidos cria o produto e retorna 201")
     void create_asAdmin_validBody_returns201() throws Exception {
         when(productService.create(any())).thenReturn(mock(ProductResponse.class));
 
@@ -105,6 +110,7 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("POST /products como ADMIN com corpo inválido retorna 400 por falha de validação")
     void create_asAdmin_invalidBody_returns400() throws Exception {
         mockMvc.perform(post("/products")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,6 +120,7 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser
+    @DisplayName("DELETE /products/{id} como USER comum é negado com 403")
     void delete_asUser_returns403() throws Exception {
         mockMvc.perform(delete("/products/{id}", UUID.randomUUID()))
                 .andExpect(status().isForbidden());
@@ -121,6 +128,7 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
+    @DisplayName("DELETE /products/{id} como ADMIN retorna 200")
     void delete_asAdmin_returns200() throws Exception {
         when(productService.delete(any())).thenReturn(new MessageResponse("Produto excluído com sucesso"));
 

@@ -9,6 +9,7 @@ import com.ordersystem.repository.UserRepository;
 import org.mapstruct.factory.Mappers;
 import com.ordersystem.security.JwtTokenProvider;
 import com.ordersystem.security.UserPrincipal;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+@DisplayName("AuthService — autenticação e geração de tokens")
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
@@ -84,6 +86,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("login bem-sucedido retorna token, role e e-mail corretos")
     void shouldReturnLoginResultWhenLoginSucceeds() {
         UUID userId = UUID.randomUUID();
         LoginRequest request = buildLoginRequest("john@test.local", "password123");
@@ -107,6 +110,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("login como ADMIN retorna role ADMIN e token gerado")
     void shouldReturnAdminRoleWhenAdminLogsIn() {
         UUID userId = UUID.randomUUID();
         LoginRequest request = buildLoginRequest("admin@test.local", "pass");
@@ -124,6 +128,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("credenciais inválidas lançam BadCredentialsException")
     void shouldThrowBadCredentialsWhenAuthenticationFails() {
         LoginRequest request = buildLoginRequest("john@test.local", "wrong");
         when(authenticationManager.authenticate(any())).thenThrow(new BadCredentialsException("Bad credentials"));
@@ -134,6 +139,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("autentica com as credenciais corretas passadas ao AuthenticationManager")
     void shouldCallAuthenticationManagerWithCorrectCredentials() {
         UUID userId = UUID.randomUUID();
         LoginRequest request = buildLoginRequest("alice@test.local", "secret");
@@ -154,6 +160,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("token JWT é gerado para o principal autenticado")
     void shouldGenerateTokenForAuthenticatedPrincipal() {
         UUID userId = UUID.randomUUID();
         LoginRequest request = buildLoginRequest("bob@test.local", "pass");
@@ -171,6 +178,7 @@ class AuthServiceTest {
     }
 
     @Test
+    @DisplayName("refresh token é criado com o ID do principal")
     void shouldCreateRefreshTokenWithPrincipalId() {
         UUID userId = UUID.randomUUID();
         LoginRequest request = buildLoginRequest("bob@test.local", "pass");
