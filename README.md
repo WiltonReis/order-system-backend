@@ -1,476 +1,370 @@
-# Order Management System — Backend
+# Order Management System (OMS) — Backend
 
 [![Backend CI](https://github.com/WiltonReis/order-system-backend/actions/workflows/backend.yml/badge.svg)](https://github.com/WiltonReis/order-system-backend/actions/workflows/backend.yml)
 ![Java](https://img.shields.io/badge/Java-21-blue?logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.5-brightgreen?logo=springboot)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
-![Flyway](https://img.shields.io/badge/Flyway-migrations-red?logo=flyway)
-![Prometheus](https://img.shields.io/badge/Prometheus-2.52-orange?logo=prometheus)
-![Grafana](https://img.shields.io/badge/Grafana-11.0-orange?logo=grafana)
-![Tempo](https://img.shields.io/badge/Tempo-2.4-orange?logo=grafana)
-![Loki](https://img.shields.io/badge/Loki-2.9-orange?logo=grafana)
+![Grafana Cloud](https://img.shields.io/badge/Grafana%20Cloud-observabilidade-orange?logo=grafana)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-API REST multi-tenant para gerenciamento de pedidos, produtos e usuários em modelo SaaS. Desenvolvida com Java 21, Spring Boot 3 e PostgreSQL; autenticação stateless via JWT em cookie `httpOnly` com refresh token; stack de observabilidade completa com Prometheus e Grafana provisionados via Docker Compose.
+Esse é o backend de um sistema de gestão de pedidos que montei como projeto de portfólio. A ideia foi fugir do CRUD básico e construir algo mais perto do que se vê numa empresa de verdade: uma API multi-tenant onde cada empresa cadastrada tem os dados totalmente isolados, com login por JWT, observabilidade rodando em produção e deploy automatizado.
+
+Não é um produto real e nem tem a pretensão de ser. É onde eu pratico decisões de arquitetura, segurança e observabilidade com calma, e mostro como penso essas coisas. Boa parte do tempo aqui foi gasta nas partes que normalmente ficam escondidas: isolamento de dados entre empresas, o que monitorar em produção e como manter tudo isso rodando de graça.
+
+**Frontend do projeto:** [github.com/WiltonReis/order-system-frontend](https://github.com/WiltonReis/order-system-frontend)
+
+| | Link |
+|---|---|
+| App (produção) | [tanstack-start-app.wiltonfilho0825.workers.dev](https://tanstack-start-app.wiltonfilho0825.workers.dev) |
+| Swagger UI | [/swagger-ui/index.html](https://order-system-backend-noble-fog-4603.fly.dev/swagger-ui/index.html) |
+
+> **Sobre o link de produção:** manter uma instância sempre no ar custa dinheiro, e isso não faz muito sentido pra um projeto de portfólio. Então o app pode estar fora do ar quando você acessar. Pra ver funcionando, o caminho mais garantido é rodar localmente com Docker (instruções mais abaixo).
 
 ---
 
 ## Sumário
 
-- [Sobre o projeto](#sobre-o-projeto)
-- [Infraestrutura](#infraestrutura)
 - [Funcionalidades](#funcionalidades)
-- [Arquitetura](#arquitetura)
-- [Tecnologias](#tecnologias)
-- [Multi-tenancy](#multi-tenancy)
-- [Segurança](#segurança)
+- [Stack utilizada](#stack-utilizada)
+- [Arquitetura do projeto](#arquitetura-do-projeto)
 - [Observabilidade](#observabilidade)
+- [Segurança](#segurança)
 - [Como rodar localmente](#como-rodar-localmente)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Testes](#testes)
-- [Endpoints da API](#endpoints-da-api)
-- [Decisões técnicas](#decisões-técnicas)
-- [Frontend](#frontend)
+- [API](#api)
+- [Prints e gifs](#prints-e-gifs)
+- [Melhorias futuras](#melhorias-futuras)
+- [Autor](#autor)
 - [Licença](#licença)
-
----
-
-## Sobre o projeto
-
-O **OMS (Order Management System)** é um SaaS B2B de portfólio que simula uma plataforma real de gestão de pedidos com cadastro auto-serviço de empresas (tenants). Cada empresa opera isolada: usuários, produtos e pedidos são completamente segregados por tenant, garantidos por filtros de aplicação e testados por integração real com PostgreSQL.
-
-O objetivo é demonstrar em portfólio a construção de um backend profissional: autenticação segura, multi-tenancy, migrações versionadas, observabilidade de produção com Prometheus/Grafana, geração de PDF e CI/CD.
-
-**Frontend:** [github.com/WiltonReis/order-system-frontend](https://github.com/WiltonReis/order-system-frontend)
-
-| | Link |
-|---|---|
-| Frontend (produção) | [tanstack-start-app.wiltonfilho0825.workers.dev](https://tanstack-start-app.wiltonfilho0825.workers.dev) |
-| Swagger UI (produção) | [order-system-backend-noble-fog-4603.fly.dev/swagger-ui/index.html](https://order-system-backend-noble-fog-4603.fly.dev/swagger-ui/index.html) |
-
-> **Disponibilidade online:** a aplicação pode não estar rodando em produção — manter uma instância no Fly.io tem custo contínuo que não é viável para um projeto de portfólio. Para avaliar o projeto, rode localmente com Docker Compose (instruções abaixo) ou acesse o código-fonte.
-
----
-
-## Infraestrutura
-
-| Componente | Tecnologia | Detalhes |
-|---|---|---|
-| Backend | [Fly.io](https://fly.io) | Docker, região São Paulo (`gru`), 512 MB RAM |
-| Banco de dados | [Supabase](https://supabase.com) | PostgreSQL 16 gerenciado |
-| Armazenamento de imagens | [Cloudflare R2](https://cloudflare.com/r2) | Upload de fotos de produtos |
-| Frontend | [Cloudflare Workers](https://workers.cloudflare.com) | TanStack Start (SSR/edge) |
 
 ---
 
 ## Funcionalidades
 
-- **Registro de tenant** — Empresa (CNPJ/CPF) se cadastra e cria o primeiro usuário ADMIN automaticamente
-- **Autenticação** — Login com JWT em cookie `httpOnly`; refresh token de 30 dias; logout limpa ambos os cookies
-- **Multi-tenant** — Isolamento completo de dados por empresa via Hibernate `@Filter`
-- **Pedidos** — Criação atômica (itens + desconto em uma transação), transições de status, soft-delete com "desfazer" por 1 min
-- **Histórico de status** — Toda transição de status é registrada com autor e timestamp
-- **Exportação PDF** — `GET /orders/{id}/pdf` gera PDF completo com itens, desconto, totais e dados de auditoria
-- **Produtos** — CRUD com upload de imagem para R2
-- **Usuários** — Gestão de membros da empresa (ADMIN only); e-mail e nome podem ser reutilizados após soft-delete
-- **Dashboard** — Métricas agregadas por tenant (pedidos por status, receita, filtros por período)
-- **Rate limiting** — Bucket4j em `/auth/login`, `/auth/register` e `/auth/refresh`
-- **Paginação e filtros** — Todos os endpoints de listagem suportam página, tamanho e filtros
-- **Observabilidade** — Métricas de JVM, HTTP e banco exportadas via Actuator; coletadas pelo Prometheus e visualizadas no Grafana
+- **Cadastro de empresa.** A empresa se registra com CNPJ ou CPF e já sai com o primeiro usuário ADMIN criado.
+- **Login com JWT.** O token vai num cookie `httpOnly`, com refresh token de 30 dias. O logout limpa os dois.
+- **Isolamento por empresa.** Cada empresa só enxerga os próprios dados. Isso é aplicado no nível do Hibernate, então não dá pra esquecer um `WHERE` e vazar dado de outro tenant.
+- **Pedidos.** Criação de pedido completo (itens e desconto numa transação só), mudança de status e exclusão com janela de "desfazer" de 1 minuto.
+- **Histórico de status.** Toda mudança de status fica registrada com quem fez e quando.
+- **Exportação em PDF.** Cada pedido pode ser baixado como PDF com itens, desconto, totais e dados de auditoria.
+- **Produtos.** CRUD completo, com upload de imagem indo pro Cloudflare R2.
+- **Usuários.** Gestão dos membros da empresa (só ADMIN). E-mail e nome podem ser reaproveitados depois que um usuário é removido.
+- **Dashboard.** Números agregados por empresa: pedidos por status, receita e filtros por período.
+- **Rate limiting.** As rotas de login, registro e refresh têm limite de requisições pra travar tentativa de força bruta.
+- **Paginação e filtros.** Todas as listagens aceitam página, tamanho e filtros.
 
 ---
 
-## Arquitetura
+## Stack utilizada
+
+**Base**
+- Java 21 e Spring Boot 3.2.5
+- Spring Data JPA + Hibernate (ORM e multi-tenancy)
+- PostgreSQL 16
+- Flyway para migrations versionadas
+
+**Segurança**
+- Spring Security
+- JJWT para gerar e validar os tokens
+- Bucket4j (com Caffeine) para o rate limiting
+- caelum-stella para validar CPF e CNPJ
+
+**Observabilidade**
+- Micrometer (Prometheus em dev, OTLP push em produção)
+- Micrometer Tracing com bridge pro OpenTelemetry
+- loki4j para mandar os logs pro Loki
+- Logstash Logback Encoder para logs em JSON
+
+**Documentação e PDF**
+- springdoc-openapi (Swagger UI)
+- OpenPDF para gerar os PDFs de pedido
+
+**Testes e infra**
+- Testcontainers (sobe um PostgreSQL real nos testes de integração)
+- AWS SDK v2 para falar com o Cloudflare R2
+- Lombok
+
+---
+
+## Arquitetura do projeto
+
+A API é um monólito organizado em camadas. Controller só recebe e devolve HTTP, a regra de negócio fica nos services e o acesso ao banco nos repositories. Escolhi monólito de propósito: é um projeto solo, e quebrar em microsserviços só traria infra pra cuidar sem ganho nenhum.
 
 ```
-┌─────────────────────────────────────────────┐
-│           Client (Frontend / HTTP)          │
-└──────────────────┬──────────────────────────┘
-                   │ HTTPS + Cookie httpOnly
-┌──────────────────▼──────────────────────────┐
-│              Spring Boot API                │
-│                                             │
-│  RateLimitFilter → JwtAuthenticationFilter  │
-│         → MdcFilter (requestId/MDC)         │
-│                   │                         │
-│   Controllers  (camada HTTP, DTOs apenas)   │
-│       Auth / Order / Product / User         │
-│                   │                         │
-│   Services  (regras de negócio)             │
-│   OrderService / ProductService / ...       │
-│                   │                         │
-│   Repositories  (Spring Data JPA)           │
-│   JPQL com JOIN FETCH — sem N+1             │
-│       + Hibernate @Filter (tenancy)         │
-│                   │                         │
-└───────────────────┼─────────────────────────┘
-                    │ JDBC / Flyway migrations
-┌───────────────────▼─────────────────────────┐
-│        PostgreSQL 16 (Supabase / local)     │
-└─────────────────────────────────────────────┘
-         │ /actuator/prometheus scrape (15s)
-┌────────▼────────────────────────────────────┐
-│  Prometheus → Grafana (JVM · HTTP · HikariCP│
-│              · CPU · GC · p50/p95/p99)      │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│           Cliente (Frontend / HTTP)          │
+└──────────────────┬───────────────────────────┘
+                   │ HTTPS + cookie httpOnly
+┌──────────────────▼───────────────────────────┐
+│              Spring Boot API                 │
+│                                              │
+│  RateLimitFilter → JwtAuthenticationFilter   │
+│            → MdcFilter (traceId)             │
+│                                              │
+│  Controllers   (só HTTP, trabalham com DTOs) │
+│  Services      (regra de negócio)            │
+│  Repositories  (Spring Data JPA, sem N+1)    │
+│            + Hibernate @Filter (tenant)      │
+└──────────────────┬───────────────────────────┘
+                   │ JDBC / migrations Flyway
+┌──────────────────▼───────────────────────────┐
+│        PostgreSQL 16 (Supabase / local)      │
+└──────────────────────────────────────────────┘
 ```
 
-**Pacotes:**
+### Organização dos pacotes
 
 ```
 src/main/java/com/ordersystem/
-├── config/         # SecurityConfig, @ConfigurationProperties (JWT, Cookie, CORS)
-├── controller/     # Camada HTTP — thin, sem lógica de negócio
-├── dto/
-│   ├── request/    # Objetos de entrada com Bean Validation
-│   └── response/   # Objetos de saída (nunca expõe entidade diretamente)
-├── entity/         # Entidades JPA com @SQLRestriction (soft-delete) e @Filter (tenant)
-├── enums/          # OrderStatus, Role
-├── exception/      # RFC 7807 ProblemDetail — GlobalExceptionHandler
-├── infra/          # MdcFilter, RateLimitFilter
-├── repository/     # Spring Data JPA + queries nativas para soft-delete
-├── security/       # JwtTokenProvider, JwtAuthenticationFilter, TenantContext
-├── service/        # Lógica de negócio + OrderPdfService
-└── validation/     # @CpfCnpj (caelum-stella), OrderValidator, UserValidator, AuthValidator, ProductValidator
+├── config/       # SecurityConfig, ActuatorSecurityConfig, properties
+├── controller/   # camada HTTP, sem lógica de negócio
+├── dto/          # request (com validação) e response (nunca expõe a entidade)
+├── entity/       # entidades JPA, soft-delete e filtro de tenant
+├── enums/        # OrderStatus, Role
+├── exception/    # erros padronizados (RFC 7807) no GlobalExceptionHandler
+├── infra/        # filtros de MDC, rate limit e logging
+├── repository/   # Spring Data JPA + queries nativas pro soft-delete
+├── security/     # JwtTokenProvider, filtro de auth, TenantContext
+├── service/      # regra de negócio + geração de PDF
+└── validation/   # @CpfCnpj e validadores de domínio
 ```
 
----
+### Multi-tenancy
 
-## Tecnologias
+Cada empresa é um tenant, e todas dividem o mesmo banco e o mesmo schema. O que separa os dados é uma coluna `customer_saas_id` em cada tabela. O fluxo é assim:
 
-| Tecnologia | Versão | Uso |
+1. No registro, nasce uma empresa (`CustomerSaas`) junto com o primeiro usuário ADMIN.
+2. O JWT carrega o `tenantId` como claim.
+3. A cada request, o filtro de autenticação valida esse claim e guarda o tenant num `ThreadLocal`.
+4. Um `@Filter` do Hibernate injeta o `WHERE customer_saas_id = :tenantId` em toda query, automaticamente.
+5. O `@SQLRestriction` ainda esconde os registros que foram soft-deletados.
+
+A parte mais importante disso é confiável de verdade, então tem teste de integração pra provar: ele sobe dois tenants num PostgreSQL real e confirma que um nunca consegue ler dado do outro, nem mesmo registros excluídos.
+
+### Infraestrutura em produção
+
+| Parte | Onde roda | Detalhes |
 |---|---|---|
-| Java | 21 | Linguagem |
-| Spring Boot | 3.2.5 | Framework principal |
-| Spring Security | 6.x | Autenticação e autorização via `@PreAuthorize` e filtros |
-| Spring Data JPA + Hibernate | 6.x | ORM + multi-tenancy com `@Filter` e `@SQLRestriction` |
-| PostgreSQL | 16 | Banco de dados |
-| Flyway | 10.x | Migrações versionadas (V1–V5) |
-| JJWT | 0.12.3 | Geração e validação de JWT |
-| Bucket4j | 8.10.1 | Rate limiting em memória (Caffeine) |
-| OpenPDF | 2.0.3 | Geração de PDF de pedidos |
-| caelum-stella | 2.1.7 | Validação de CPF/CNPJ (algoritmo oficial de dígito verificador) |
-| springdoc-openapi | 2.5.0 | Swagger UI automático com `@Tag`, `@Operation`, `@ApiResponses` |
-| Spring Actuator | 3.x | Health check + endpoint `/actuator/prometheus` |
-| Micrometer (Prometheus Registry) | 1.12.x | Exportação de métricas JVM, HTTP e HikariCP |
-| Micrometer Tracing + OTel Bridge | 1.2.x | Tracing distribuído; popula `traceId`/`spanId` no MDC |
-| OpenTelemetry OTLP Exporter | 1.36.0 | Envia traces via HTTP para Tempo (DEV) / Grafana Cloud (PROD) |
-| Prometheus | 2.52 | Coleta e retenção de métricas (15 dias); exemplar-storage habilitado |
-| Grafana Tempo | 2.4 | Armazenamento e consulta de traces; link exemplar → trace |
-| Grafana | 11.0 | Dashboards provisionados automaticamente via YAML |
-| Testcontainers | 1.21.4 | Testes de integração com PostgreSQL real |
-| Logstash Logback Encoder | 7.4 | Logs JSON estruturados em produção |
-| loki4j (loki-logback-appender) | 1.5.2 | Envia logs diretamente ao Loki via HTTP (DEV local e PROD Grafana Cloud) |
-| Grafana Loki | 2.9 | Agregação e consulta de logs; link `traceId` → Tempo |
-| Lombok | latest | Redução de boilerplate |
-| AWS SDK v2 (S3) | 2.26.12 | Upload de imagens para Cloudflare R2 |
-
----
-
-## Multi-tenancy
-
-Modelo **shared database / shared schema** com coluna discriminadora `customer_saas_id`.
-
-**Funcionamento:**
-1. Registro cria uma `CustomerSaas` (empresa) + primeiro usuário `ADMIN`
-2. JWT gerado contém o `tenantId` como claim
-3. `JwtAuthenticationFilter` valida o claim e seta `TenantContext` (ThreadLocal)
-4. Hibernate `@Filter("tenantFilter")` aplica `WHERE customer_saas_id = :tenantId` em todas as queries
-5. `@SQLRestriction("deleted_at IS NULL")` exclui registros soft-deleted automaticamente
-
-**Garantia de isolamento:** teste de integração real com Testcontainers cria dois tenants e verifica que nenhum acessa dados do outro — inclusive registros soft-deleted.
-
-![Testes de isolamento multi-tenant](docs/screenshots/multi-tenant-test.png)
-
----
-
-## Segurança
-
-| Mecanismo | Detalhe |
-|---|---|
-| JWT access token | 10 minutos de validade, claim `tenantId` validado a cada request |
-| Refresh token | 30 dias, cookie `oms.refresh` httpOnly — renova o par access+refresh |
-| Cookie `Secure` | Obrigatório em produção (`COOKIE_SECURE=true`); startup falha se false em prod |
-| `@PreAuthorize` | Autorização declarativa por role em todos os endpoints protegidos |
-| Rate limiting | Bucket4j: 10 req/min em `/auth/login` e `/auth/register`; 5 req/min em `/auth/refresh` |
-| Validação de CPF/CNPJ | `@CpfCnpj` com algoritmo oficial caelum-stella — rejeita valores com dígito verificador inválido |
-| RFC 7807 ProblemDetail | Todos os erros retornam `application/problem+json` com `requestId` rastreável e mapa `errors` por campo |
-| CORS | Origens permitidas configuradas por variável de ambiente |
+| Backend | [Fly.io](https://fly.io) | Docker, região de São Paulo (`gru`), 512 MB de RAM, com auto-stop |
+| Banco | [Supabase](https://supabase.com) | PostgreSQL 16 gerenciado |
+| Imagens | [Cloudflare R2](https://cloudflare.com/r2) | fotos dos produtos |
+| Frontend | [Cloudflare Workers](https://workers.cloudflare.com) | TanStack Start (SSR no edge) |
+| Observabilidade | [Grafana Cloud](https://grafana.com/products/cloud/) | métricas, logs e traces, tudo no free tier |
 
 ---
 
 ## Observabilidade
 
-Stack completa provisionada automaticamente via Docker Compose — nenhuma configuração manual necessária. Inclui tracing distribuído ponta-a-ponta com link bidirecional **trace ⇄ log ⇄ metric** via exemplars no Grafana.
+Essa foi a parte que eu mais quis explorar. A API exporta as três coisas que importam pra entender o que está acontecendo em produção: métricas, logs e traces. O código que gera tudo isso é o mesmo nos dois ambientes; o que muda é só pra onde os dados vão, controlado por variáveis de ambiente.
 
-| Serviço | Porta local | Descrição |
+### Dev e produção funcionam diferente (e tem um motivo)
+
+Em desenvolvimento o Prometheus faz scrape: ele bate no `/actuator/prometheus` a cada 15 segundos e puxa as métricas. Funciona bem porque tudo está rodando junto no Docker.
+
+Em produção isso quebra. A VM no Fly.io tem auto-stop, então ela dorme quando não tem tráfego. Acordar a máquina a cada 15 segundos só pra um scrape ia contra a ideia de custo zero. A solução foi inverter: em vez do Prometheus puxar, o próprio backend empurra as métricas pro Grafana Cloud via OTLP. Logs e traces seguem o mesmo padrão de push.
+
+```
+DEV
+  Micrometer → /actuator/prometheus ← Prometheus (scrape 15s) → Grafana
+  loki4j → Loki local
+  OpenTelemetry → Tempo local
+
+PROD
+  Micrometer OTLP → Grafana Cloud Mimir   (push, 60s)
+  loki4j          → Grafana Cloud Loki    (push)
+  OpenTelemetry   → Grafana Cloud Tempo   (push, 10% de sampling)
+```
+
+### Logs
+
+Os logs saem em JSON pelo loki4j, um appender do Logback que manda os dados direto pro Loki, sem precisar de sidecar. Em dev o destino é o Loki do Docker; em produção, o Grafana Cloud Loki.
+
+Cada log carrega os campos que ajudam a rastrear uma requisição: `traceId`, `spanId`, `userId`, `tenantId`, método e rota HTTP. Senhas e tokens são mascarados antes de sair. As labels são poucas e de baixa cardinalidade (`service`, `env`, `level`), o resto fica no corpo e dá pra filtrar via LogQL:
+
+```logql
+{service="oms-backend", env="prod"} | json | tenantId = "abc123"
+```
+
+### Traces
+
+O tracing usa Micrometer Tracing com o bridge do OpenTelemetry. Toda requisição ganha um `traceId` que entra em todos os logs daquela request. Isso liga log e trace nos dois sentidos: dá pra clicar num `traceId` no log e cair direto no trace dentro do Tempo, ou ir de um pico de latência no dashboard até a requisição que causou.
+
+### O que o dashboard mostra
+
+O dashboard de produção acompanha o básico de saúde da JVM e da API:
+
+- **JVM e GC:** uso de heap, frequência de coleta e tempo de pausa.
+- **HTTP:** requisições por segundo, latência (p50/p95/p99) e taxa de erro 5xx.
+- **Banco:** conexões ativas do HikariCP e tempo pra pegar uma conexão do pool.
+- **Processo:** CPU, threads do Tomcat e uptime.
+
+![Dashboard Grafana — JVM](docs/screenshots/grafana-jvm.png)
+
+![Dashboard Grafana — Saúde HTTP](docs/screenshots/grafana-health-http.png)
+
+![Dashboard Grafana — Banco e infra](docs/screenshots/grafana-database-infra.png)
+
+![Dashboard Grafana — Logs (Loki) e traces (Tempo)](docs/screenshots/grafana-loki-tempo.png)
+
+### Quanto custa
+
+Nada. Toda a observabilidade de produção cabe no free tier do Grafana Cloud com folga:
+
+| Componente | Free tier | Uso real |
 |---|---|---|
-| Spring Actuator | `8080/actuator/prometheus` | Expõe métricas no formato Prometheus |
-| Prometheus | `9090` | Coleta métricas a cada 15s; retenção de 15 dias; exemplar-storage habilitado |
-| Grafana | `3001` | Dashboard provisionado automaticamente via YAML; link trace → metric via exemplars |
-| Tempo | `3200` | Armazena traces OTLP; recebe spans do backend via HTTP em `4318` |
-| Loki | `3100` | Recebe logs via loki4j (push); retenção de 7 dias; link `traceId` → Tempo |
+| Mimir (métricas) | 10k séries | bem abaixo disso |
+| Loki (logs) | 50 GB / 14 dias | menos de 100 MB/mês |
+| Tempo (traces) | 50 GB / 14 dias | poucos MB/mês com sampling de 10% |
 
-**Dashboard Grafana — painéis:**
+---
 
-| Grupo | Métricas |
+## Segurança
+
+| Item | Como funciona |
 |---|---|
-| JVM | Heap/Non-Heap usados, GC pauses cumulativo |
-| HTTP | Taxa de requisições/s, latência p50/p95/p99, taxa de erros 5xx |
-| HikariCP | Conexões ativas, pendentes e tempo de aquisição |
-| Sistema | CPU do processo, memória do processo, uptime |
-| Logs | Stream de logs em tempo real via Loki (`{service="oms-backend"}`) |
+| Access token | JWT de 10 minutos, com o `tenantId` validado em cada request |
+| Refresh token | 30 dias, em cookie `httpOnly`, renova o par de tokens |
+| Cookie `Secure` | obrigatório em produção; a aplicação nem sobe se vier desligado em prod |
+| Autorização | `@PreAuthorize` por role em todas as rotas protegidas |
+| Rate limiting | 10 req/min no login e registro, 5 req/min no refresh |
+| CPF/CNPJ | validação com o algoritmo oficial (caelum-stella) |
+| Erros | resposta padronizada em `application/problem+json` com `requestId` e erros por campo |
+| CORS | origens liberadas vêm de variável de ambiente |
+| Métricas | o `/actuator/prometheus` fica atrás de Basic Auth com um usuário dedicado |
 
-**Dashboard Grafana — Business (`OMS — Business`):**
-
-| Painel | Detalhe |
-|---|---|
-| Login Attempts by Outcome | Taxa de tentativas de login por resultado: `success`, `failure`, `locked` |
-| Blocked IPs / Login Success Ratio | IPs bloqueados por rate limit; taxa de sucesso no período |
-| Orders Lifecycle Rate | Taxa de pedidos criados, concluídos e cancelados |
-| Orders Created / Completed / Cancelled | Totais absolutos no período selecionado |
-| PDF Generation Latency | Latência de geração de PDF: p50, p95, p99 (via `@Timed`) |
-| Cache Hit Ratio by Name | Proporção de acertos por cache Caffeine |
-
-O datasource e o dashboard são configurados via arquivos em `monitoring/grafana/provisioning/` — o Grafana sobe já conectado ao Prometheus e com o dashboard carregado.
-
-Histogramas de latência com percentis p50/p95/p99 estão habilitados globalmente em `application.yml`:
-
-```yaml
-management:
-  metrics:
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      percentiles:
-        http.server.requests: 0.5,0.95,0.99
-```
-
-```
-monitoring/
-├── prometheus/
-│   └── prometheus.yml            # scrape config — job: spring-boot; exemplar-storage
-├── tempo/
-│   └── tempo.yaml                # receiver OTLP/HTTP :4318; storage local
-├── loki/
-│   └── loki-config.yaml          # boltdb-shipper + filesystem; retenção 7 dias
-└── grafana/
-    ├── provisioning/
-    │   ├── datasources/          # prometheus.yml + tempo.yml + loki.yml — datasources automáticos
-    │   └── dashboards/           # dashboards.yml — pasta Spring Boot
-    └── dashboards/
-        ├── spring-boot.json      # dashboard JVM/HTTP/HikariCP/Logs
-        └── business.json         # dashboard de métricas de negócio
-```
+Um detalhe que eu gostei de resolver: o endpoint de métricas tem uma cadeia de segurança própria, separada da API. Assim o Basic Auth das métricas e o JWT da aplicação não se misturam e não dá pra um interferir no outro.
 
 ---
 
 ## Como rodar localmente
 
-### Opção 1 — Docker Compose (recomendado)
+### Opção 1 — Docker Compose (a mais fácil)
 
-Sobe Postgres + pgAdmin + backend + Prometheus + Grafana com um único comando.
+Sobe tudo de uma vez: Postgres, pgAdmin, backend, Prometheus, Grafana, Loki e Tempo.
 
 ```bash
-# Clone o repositório
 git clone https://github.com/WiltonReis/order-system-backend.git
 cd order-system-backend
 
-# Copie e ajuste as variáveis de ambiente
-cp .env.example .env
+cp .env.example .env   # ajuste o que quiser
 
-# Suba todos os serviços
-make up
-# ou: docker compose up -d
+make up                # ou: docker compose up -d
 ```
 
-**Serviços disponíveis:**
+Depois que subir:
 
 | Serviço | URL |
 |---|---|
-| Backend API | `http://localhost:8080` |
+| API | `http://localhost:8080` |
 | Swagger UI | `http://localhost:8080/swagger-ui/index.html` |
 | Health check | `http://localhost:8080/actuator/health` |
 | pgAdmin | `http://localhost:5050` |
 | Prometheus | `http://localhost:9090` |
-| Grafana | `http://localhost:3001` (login: `admin` / senha do `.env`) |
-| Tempo | `http://localhost:3200` (API HTTP; receiver OTLP em `4318`) |
+| Grafana | `http://localhost:3001` |
 | Loki | `http://localhost:3100` |
+| Tempo | `http://localhost:3200` |
 
-**Comandos `make` disponíveis:**
+O Grafana já sobe com os datasources e os dashboards configurados, sem passo manual.
 
-| Comando | Ação |
+Comandos do `make`:
+
+| Comando | O que faz |
 |---|---|
-| `make up` | Sobe todos os serviços em background |
-| `make down` | Para e remove os containers |
-| `make logs` | Acompanha logs de todos os serviços |
-| `make dev` | Sobe apenas Postgres + pgAdmin (para rodar o backend local com `mvn`) |
+| `make up` | sobe tudo em background |
+| `make down` | para e remove os containers |
+| `make logs` | acompanha os logs de todos os serviços |
+| `make dev` | sobe só Postgres + pgAdmin (pra rodar o backend pelo `mvn`) |
 
-> Docker deve estar em execução. O Postgres sobe com healthcheck; o backend aguarda antes de iniciar. O Prometheus aguarda o backend estar saudável antes de começar a coletar.
+### Opção 2 — Rodar o backend direto (Java + Postgres)
 
----
-
-### Opção 2 — Execução direta (Java + Postgres local)
-
-**Pré-requisitos:** Java 21+, Maven 3.9+, PostgreSQL 16
+Precisa de Java 21, Maven 3.9+ e PostgreSQL 16.
 
 ```bash
-# 1. Sobe apenas a infra necessária
-make dev
-# ou: docker compose up -d postgres pgadmin
+make dev   # sobe só o banco
 
-# 2. Configure as variáveis de ambiente
 export DB_USERNAME=postgres
 export DB_PASSWORD=postgres
 export JWT_SECRET=$(openssl rand -base64 32)
 export COOKIE_SECURE=false
 export APP_CORS_ALLOWED_ORIGINS=http://localhost:3000
+export METRICS_USERNAME=grafana_scraper
+export METRICS_PASSWORD=changeme
 
-# 3. Execute
 mvn spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-O Flyway cria o schema automaticamente na primeira execução.
+O Flyway aplica as migrations sozinho na primeira vez. Nesse modo o Loki não sobe, então os logs aparecem só no console (colorido).
 
----
-
-## Variáveis de ambiente
-
-| Variável | Descrição | Obrigatória em prod |
-|---|---|---|
-| `DB_USERNAME` | Usuário do PostgreSQL | Sim |
-| `DB_PASSWORD` | Senha do PostgreSQL | Sim |
-| `JWT_SECRET` | Chave JWT em Base64 (mín. 32 bytes) | Sim |
-| `JWT_EXPIRATION_MS` | Validade do access token em ms (padrão: `600000`) | Não |
-| `REFRESH_EXPIRATION_MS` | Validade do refresh token em ms (padrão: `2592000000`) | Não |
-| `COOKIE_SECURE` | `true` para HTTPS (obrigatório em prod) | Sim |
-| `APP_CORS_ALLOWED_ORIGINS` | Origens permitidas (ex.: `https://app.exemplo.com`) | Sim |
-| `PGADMIN_EMAIL` | E-mail de login do pgAdmin | Não (local) |
-| `PGADMIN_PASSWORD` | Senha do pgAdmin | Não (local) |
-| `GF_ADMIN_USER` | Usuário admin do Grafana (padrão: `admin`) | Não (local) |
-| `GF_ADMIN_PASSWORD` | Senha admin do Grafana | Não (local) |
-| `R2_ENDPOINT` | URL do endpoint Cloudflare R2 | Se usar upload de imagem |
-| `R2_ACCESS_KEY` | Access key do R2 | Se usar upload de imagem |
-| `R2_SECRET_KEY` | Secret key do R2 | Se usar upload de imagem |
-| `R2_BUCKET` | Nome do bucket R2 | Se usar upload de imagem |
-
-Gerar `JWT_SECRET` seguro:
-```bash
-openssl rand -base64 32
-```
-
----
-
-## Testes
+### Testes
 
 ```bash
 mvn verify
 ```
 
-Os testes de integração usam **Testcontainers** — Docker deve estar em execução. Um container PostgreSQL 16 é iniciado automaticamente, o Flyway aplica as migrations e os testes rodam contra o banco real.
+Os testes de integração usam Testcontainers, então o Docker precisa estar rodando: ele sobe um PostgreSQL 16 de verdade, aplica as migrations e roda os testes contra o banco real. O destaque é o `TenantIsolationIntegrationTest`, que prova o isolamento entre empresas. O resto cobre os fluxos de auth, pedidos, produtos e usuários nos services.
 
-**Cobertura atual:**
+---
 
-| Teste | O que valida |
+## Variáveis de ambiente
+
+### Aplicação
+
+| Variável | Pra que serve | Obrigatória em prod |
+|---|---|---|
+| `DB_USERNAME` | usuário do PostgreSQL | Sim |
+| `DB_PASSWORD` | senha do PostgreSQL | Sim |
+| `JWT_SECRET` | chave do JWT em Base64 (mín. 32 bytes) | Sim |
+| `COOKIE_SECURE` | `true` pra HTTPS | Sim |
+| `APP_CORS_ALLOWED_ORIGINS` | origens liberadas | Sim |
+| `R2_ENDPOINT` | endpoint do Cloudflare R2 | Só se usar upload |
+| `R2_ACCESS_KEY` | access key do R2 | Só se usar upload |
+| `R2_SECRET_KEY` | secret key do R2 | Só se usar upload |
+| `R2_BUCKET` | nome do bucket | Só se usar upload |
+
+### Observabilidade
+
+| Variável | Pra que serve | Padrão (dev) |
+|---|---|---|
+| `METRICS_USERNAME` | Basic Auth do `/actuator/prometheus` | `grafana_scraper` |
+| `METRICS_PASSWORD` | senha do Basic Auth | `changeme` |
+| `LOKI_URL` | endpoint de push do Loki | `http://loki:3100/loki/api/v1/push` |
+| `LOKI_USER` | usuário do Loki (Grafana Cloud) | vazio |
+| `LOKI_PASSWORD` | senha/token do Loki | vazio |
+| `OTLP_METRICS_URL` | endpoint OTLP do Mimir | só prod |
+| `OTLP_METRICS_AUTH_BASE64` | token do Mimir em Base64 | só prod |
+| `OTLP_TRACING_ENDPOINT` | endpoint OTLP do Tempo | `http://localhost:4318/v1/traces` |
+| `OTLP_TRACES_AUTH_BASE64` | token do Tempo em Base64 | só prod |
+| `TRACING_SAMPLING_PROBABILITY` | fração de traces amostrados | `1.0` em dev, `0.1` em prod |
+
+### Docker Compose (dev)
+
+| Variável | Pra que serve |
 |---|---|
-| `TenantIsolationIntegrationTest` | Tenant A não acessa pedidos, produtos e usuários de Tenant B — nem soft-deleted |
-| `TenantIsolationIntegrationTest` | Restauração de pedido não afeta outro tenant |
-| `UserSoftDeleteIntegrationTest` | E-mail e nome de usuário podem ser reutilizados após soft-delete no mesmo tenant |
-| `AuthServiceTest` | Fluxo de login, geração de token e validação de credenciais |
-| `OrderServiceTest` | Criação atômica, transições de status, desconto e soft-delete com restore |
-| `ProductServiceTest` | CRUD de produto com isolamento de tenant |
-| `UserServiceTest` | Gestão de membros com validação de unicidade e permissões |
+| `PGADMIN_EMAIL` | login do pgAdmin |
+| `PGADMIN_PASSWORD` | senha do pgAdmin |
+| `GF_ADMIN_USER` | usuário admin do Grafana |
+| `GF_ADMIN_PASSWORD` | senha admin do Grafana |
 
-![Testes de isolamento multi-tenant](docs/screenshots/multi-tenant-test.png)
+Pra gerar um `JWT_SECRET` seguro: `openssl rand -base64 32`.
 
 ---
 
-## Endpoints da API
+## API
 
-Swagger UI disponível em `/swagger-ui/index.html` em qualquer instância rodando. [Acesse em produção →](https://order-system-backend-noble-fog-4603.fly.dev/swagger-ui/index.html)
+A documentação completa fica no Swagger, que é a fonte da verdade dos endpoints. Acesse em `/swagger-ui/index.html` em qualquer instância rodando, ou [na produção](https://order-system-backend-noble-fog-4603.fly.dev/swagger-ui/index.html).
 
-> Todos os endpoints (exceto `/auth/**` e `/actuator/health`) exigem autenticação via cookie `oms.token` ou header `Authorization: Bearer <token>`.
+Tirando `/auth/**` e `/actuator/health`, tudo exige autenticação (cookie `oms.token` ou header `Authorization: Bearer <token>`). Um gostinho de como é:
 
-### Autenticação — público
-
-| Método | Endpoint | Descrição |
+| Método | Rota | O que faz |
 |---|---|---|
-| `POST` | `/auth/register` | Registra nova empresa e primeiro usuário ADMIN |
-| `POST` | `/auth/login` | Autentica; retorna access token + cookie `oms.token` |
-| `POST` | `/auth/refresh` | Renova o par access+refresh usando o cookie `oms.refresh` |
-| `POST` | `/auth/logout` | Expira ambos os cookies |
+| `POST` | `/auth/register` | registra a empresa e o primeiro ADMIN |
+| `POST` | `/auth/login` | autentica e devolve o cookie do token |
+| `POST` | `/orders/full` | cria um pedido completo (itens + desconto numa transação) |
+| `GET` | `/orders/{id}/pdf` | baixa o pedido em PDF |
+| `GET` | `/dashboard` | números agregados da empresa |
 
-**POST /auth/register — Request:**
-```json
-{
-  "companyName": "Minha Empresa Ltda",
-  "cpfCnpj": "11222333000181",
-  "name": "João Silva",
-  "email": "joao@empresa.com",
-  "password": "Senha1234"
-}
-```
+Exemplo de corpo do `POST /orders/full`:
 
-**POST /auth/login — Request:**
-```json
-{
-  "email": "joao@empresa.com",
-  "password": "Senha1234"
-}
-```
-
----
-
-### Usuários — `ADMIN`
-
-| Método | Endpoint | Descrição |
-|---|---|---|
-| `POST` | `/users` | Cria usuário na empresa |
-| `GET` | `/users?page=0&size=20` | Lista usuários paginado |
-| `GET` | `/users/{id}` | Detalhe de um usuário |
-| `PUT` | `/users/{id}` | Atualiza dados |
-| `PATCH` | `/users/{id}/role` | Atualiza apenas a role |
-| `DELETE` | `/users/{id}` | Remove usuário (soft-delete) |
-
----
-
-### Produtos
-
-| Método | Endpoint | Acesso | Descrição |
-|---|---|---|---|
-| `POST` | `/products` | ADMIN | Cria produto |
-| `GET` | `/products?page=0&size=20` | Autenticado | Lista paginado |
-| `GET` | `/products/all` | Autenticado | Lista todos (sem paginação) |
-| `PUT` | `/products/{id}` | ADMIN | Atualiza produto completo |
-| `PATCH` | `/products/{id}` | ADMIN | Atualiza preço |
-| `DELETE` | `/products/{id}` | ADMIN | Remove produto (soft-delete) |
-| `POST` | `/products/{id}/image` | ADMIN | Upload de imagem para R2 |
-
----
-
-### Pedidos
-
-| Método | Endpoint | Acesso | Descrição |
-|---|---|---|---|
-| `POST` | `/orders` | Autenticado | Cria pedido vazio |
-| `POST` | `/orders/full` | Autenticado | Cria pedido completo (itens + desconto, atômico) |
-| `GET` | `/orders?page=0&size=20` | Autenticado | Lista pedidos paginado |
-| `GET` | `/orders/details` | Autenticado | Lista com itens e filtros (`statuses`, `userId`, `customerName`, `orderCode`, `startDate`, `endDate`, `sort`) |
-| `GET` | `/orders/active` | Autenticado | Pedidos em aberto |
-| `GET` | `/orders/history` | Autenticado | Pedidos finalizados e cancelados |
-| `GET` | `/orders/{id}` | Autenticado | Detalhe completo do pedido |
-| `GET` | `/orders/{id}/pdf` | Autenticado | Exporta PDF do pedido |
-| `PUT` | `/orders/{id}` | ADMIN | Aplica desconto |
-| `PUT` | `/orders/{id}/complete` | Autenticado | Finaliza pedido |
-| `PUT` | `/orders/{id}/cancel` | Autenticado | Cancela pedido |
-| `DELETE` | `/orders/{id}` | ADMIN | Soft-delete do pedido |
-| `POST` | `/orders/{id}/restore` | ADMIN | Restaura pedido excluído (janela de 1 min) |
-| `GET` | `/orders/{id}/status-history` | Autenticado | Histórico de transições de status |
-| `POST` | `/orders/{id}/items` | Autenticado | Adiciona item |
-| `PUT` | `/orders/{id}/items/{itemId}` | Autenticado | Atualiza quantidade |
-| `DELETE` | `/orders/{id}/items/{itemId}` | Autenticado | Remove item |
-
-**POST /orders/full — Request:**
 ```json
 {
   "customerName": "Maria Silva",
@@ -481,56 +375,36 @@ Swagger UI disponível em `/swagger-ui/index.html` em qualquer instância rodand
 }
 ```
 
-**GET /orders/{id}/pdf** — Retorna `application/pdf`. Pedidos soft-deleted retornam 404.
-
-![Exportação de PDF](docs/screenshots/pdf-export.gif)
-
 ---
 
-### Dashboard
+## Prints e gifs
 
-| Método | Endpoint | Acesso | Descrição |
-|---|---|---|---|
-| `GET` | `/dashboard` | Autenticado | Métricas do tenant (totais por status, receita, filtros por período) |
-
----
-
-### Infraestrutura
-
-| Endpoint | Acesso | Descrição |
-|---|---|---|
-| `GET /actuator/health` | Público | Health check — usado pelo Docker e Fly.io |
-| `GET /actuator/prometheus` | Interno | Métricas no formato Prometheus (coletadas pelo scraper) |
-| `GET /swagger-ui.html` | Público | Documentação interativa da API |
+**Swagger UI**
 
 ![Swagger UI](docs/screenshots/swagger-ui.png)
 
----
+**Exportação de pedido em PDF**
 
-## Decisões técnicas
+![Exportação de PDF](docs/screenshots/pdf-export.gif)
 
-| Decisão | Alternativa descartada | Motivo |
-|---|---|---|
-| Multi-tenant por filtro de aplicação (Hibernate `@Filter`) | PostgreSQL RLS | RLS exige driver customizado ou SET LOCAL por conexão — complexidade desproporcional para portfólio individual |
-| Bucket4j (em memória, Caffeine) para rate-limit | Redis | 1 instância Fly.io — Redis adicionaria custo e infra sem ganho real de escala |
-| Soft-delete com `@SQLRestriction` + restore endpoint | DELETE físico | Possibilita "desfazer" exclusão, preserva auditoria e analytics; unicidade por campo mantida via partial index no Postgres |
-| Histórico de status manual (`OrderStatusHistory`) | Hibernate Envers | Envers gera schema pesado; histórico de status é o único caso de auditoria necessário no domínio |
-| JWT curto (10 min) + refresh token (30 dias) | JWT longo (7 dias) | Reduz janela de comprometimento; refresh transparente no frontend |
-| Prometheus + Grafana provisionados via YAML | Grafana configurado manualmente | Infraestrutura como código — qualquer pessoa clona e roda `make up` com stack de observabilidade completa, sem passos manuais |
-| Monolito modular | Microsserviços | Projeto solo — overhead de infra não tem retorno |
+**Teste de isolamento entre empresas**
+
+![Teste de isolamento multi-tenant](docs/screenshots/multi-tenant-test.png)
 
 ---
 
-## Frontend
+## Autor
 
-- **Repositório:** [github.com/WiltonReis/order-system-frontend](https://github.com/WiltonReis/order-system-frontend)
-- **Stack:** React 19, TypeScript 5.8, TanStack Router/Query 5, shadcn/ui, Tailwind CSS
-- **Deploy:** Cloudflare Workers (TanStack Start SSR/edge) — [tanstack-start-app.wiltonfilho0825.workers.dev](https://tanstack-start-app.wiltonfilho0825.workers.dev)
+Feito por **Wilton Reis**.
 
-> O link de produção pode estar indisponível — manter a instância Fly.io tem custo não justificável para portfólio.
+- GitHub: [@WiltonReis](https://github.com/WiltonReis)
+- E-mail: wiltonfilho0825@gmail.com
+- Linkedin: [Wilton Reis](https://www.linkedin.com/in/wiltonreisaf)
+
+Se quiser trocar uma ideia sobre o projeto ou tem alguma sugestão, pode chamar.
 
 ---
 
 ## Licença
 
-Este projeto está licenciado sob a [MIT License](LICENSE).
+Esse projeto usa a licença MIT.

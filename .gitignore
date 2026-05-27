@@ -38,10 +38,9 @@ build/
 .DS_Store
 
 ### Claude ###
-.claude
+/.claude
 
 ### Projeto ###
 /uploads
+/planning
 .env
-observabilidade.md
-dashboardcloud.json

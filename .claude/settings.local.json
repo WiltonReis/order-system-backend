@@ -33,7 +33,11 @@
       "WebFetch(domain:grafana.com)",
       "Bash(fly secrets *)",
       "Bash(fly logs *)",
-      "Bash(fly status *)"
+      "Bash(fly status *)",
+      "Bash(git *)",
+      "PowerShell(git *)",
+      "PowerShell(ls \"C:\\\\Users\\\\Wilton\\\\Desktop\\\\Projetos\\\\order-system\\\\order-system-backend\\\\src\\\\main\\\\java\" -Recurse | Where-Object { $_.PSIsContainer } | Select-Object FullName)",
+      "PowerShell(ls \"C:\\\\Users\\\\Wilton\\\\Desktop\\\\Projetos\\\\order-system\\\\order-system-backend\\\\src\\\\test\\\\java\\\\com\\\\ordersystem\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object Name)"
     ]
   }
 }
