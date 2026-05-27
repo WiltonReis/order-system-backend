@@ -239,7 +239,7 @@ class OrderServiceTest {
 
     @Test
     void shouldFormatOrderCodeWithEightDigitPadding() {
-        // Given — MT-21: código gerado via sequence por tenant com padding de 8 dígitos
+        // Given — código sequencial por tenant com padding de 8 dígitos
         User user = buildUser("operator@test.com");
         when(userRepository.findByEmail("operator@test.com")).thenReturn(Optional.of(user));
         when(orderRepository.getNextOrderCodeForTenant(any())).thenReturn(7L);
@@ -381,7 +381,7 @@ class OrderServiceTest {
 
     @Test
     void shouldReturnEmptyPageWhenNoOrderIds() {
-        // Given — PERF-01: evita N+1 retornando vazio sem chamar findAllWithDetailsByIds
+        // Given — retorna vazio sem chamar findAllWithDetailsByIds quando não há IDs
         Pageable pageable = PageRequest.of(0, 10);
         when(orderRepository.findAllIdsPaged(pageable)).thenReturn(new PageImpl<>(List.of(), pageable, 0));
 

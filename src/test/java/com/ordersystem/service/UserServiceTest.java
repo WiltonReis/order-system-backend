@@ -377,8 +377,6 @@ class UserServiceTest {
         verify(userRepository, never()).delete(any(User.class));
     }
 
-    // --- cenário futuro / SEC-05 ---
-
     @Test
     void shouldPersistNewRoleOnUpdateRole() {
         UUID id = UUID.randomUUID();

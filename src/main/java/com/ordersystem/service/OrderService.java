@@ -66,9 +66,23 @@ public class OrderService {
     private final OrderMapper orderMapper;
     private final MeterRegistry meterRegistry;
 
-    // MT-21: MAX+1 por tenant dentro de transação SERIALIZABLE — sem race condition entre pedidos do mesmo tenant
+    // Código sequencial por tenant via MAX+1 — transação SERIALIZABLE garante atomicidade sem race condition
     private String generateOrderCode(UUID tenantId) {
         return String.format("%08d", orderRepository.getNextOrderCodeForTenant(tenantId));
+    }
+
+    private Order newOrderForCurrentTenant(User user, String customerName) {
+        UUID tenantId = TenantContext.getOrThrow();
+        Order order = new Order();
+        order.setStatus(OrderStatus.OPEN);
+        order.setCreatedAt(LocalDateTime.now());
+        order.setUser(user);
+        order.setOrderCode(generateOrderCode(tenantId));
+        order.setCustomerSaas(customerSaasRepository.getReferenceById(tenantId));
+        if (customerName != null && !customerName.isBlank()) {
+            order.setCustomerName(customerName.trim());
+        }
+        return order;
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -77,39 +91,22 @@ public class OrderService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
-        UUID tenantId = TenantContext.getOrThrow();
-        Order order = new Order();
-        order.setStatus(OrderStatus.OPEN);
-        order.setCreatedAt(LocalDateTime.now());
-        order.setUser(user);
-        order.setOrderCode(generateOrderCode(tenantId));
-        order.setCustomerSaas(customerSaasRepository.getReferenceById(tenantId));
-        if (request != null && request.getCustomerName() != null && !request.getCustomerName().isBlank()) {
-            order.setCustomerName(request.getCustomerName().trim());
-        }
+        String customerName = (request != null) ? request.getCustomerName() : null;
+        Order order = newOrderForCurrentTenant(user, customerName);
 
         Order saved = orderRepository.save(order);
         meterRegistry.counter("orders.lifecycle", "event", "created").increment();
         return orderMapper.toOrderResponse(saved);
     }
 
-    // ESC-03: cria pedido completo (itens + desconto) em transação única — sem risco de estado parcial
+    // Cria pedido completo (itens + desconto) em transação única — sem risco de estado parcial
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public OrderDetailResponse createFull(OrderFullRequest request) {
         String email = authenticatedUserProvider.getEmail();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
-        UUID tenantId = TenantContext.getOrThrow();
-        Order order = new Order();
-        order.setStatus(OrderStatus.OPEN);
-        order.setCreatedAt(LocalDateTime.now());
-        order.setUser(user);
-        order.setOrderCode(generateOrderCode(tenantId));
-        order.setCustomerSaas(customerSaasRepository.getReferenceById(tenantId));
-        if (request.getCustomerName() != null && !request.getCustomerName().isBlank()) {
-            order.setCustomerName(request.getCustomerName().trim());
-        }
+        Order order = newOrderForCurrentTenant(user, request.getCustomerName());
 
         orderValidator.validateNoDuplicateItems(request.getItems());
 
@@ -142,7 +139,7 @@ public class OrderService {
         return orderMapper.toOrderDetailResponse(saved);
     }
 
-    // PERF-01: busca todos os pedidos com itens em duas queries, sem N+1
+    // Busca pedidos em duas queries (IDs paginados + detalhes por IDs) para evitar N+1
     @Transactional(readOnly = true)
     public Page<OrderDetailResponse> findAllDetails(Pageable pageable) {
         Page<UUID> idsPage = orderRepository.findAllIdsPaged(pageable);
@@ -162,7 +159,7 @@ public class OrderService {
         return new PageImpl<>(content, pageable, idsPage.getTotalElements());
     }
 
-    // FUT-02: busca filtrada com suporte a status, userId, datas, customerName, orderCode e sort
+    // Busca filtrada com suporte a status, userId, datas, customerName, orderCode e sort
     @Transactional(readOnly = true)
     public Page<OrderDetailResponse> findAllDetailsFiltered(OrderFilterParams params, int page, int size) {
         Sort sort = buildSort(params.getSort());
@@ -190,11 +187,10 @@ public class OrderService {
     private Sort buildSort(String sort) {
         if (sort == null) return Sort.by(Sort.Direction.DESC, "createdAt");
         return switch (sort) {
-            case "oldest"        -> Sort.by(Sort.Direction.ASC,  "createdAt");
-            case "most_expensive"-> Sort.by(Sort.Direction.DESC, "total");
-            case "cheapest"      -> Sort.by(Sort.Direction.ASC,  "total");
-            case "most_items", "least_items" -> Sort.unsorted();
-            default              -> Sort.by(Sort.Direction.DESC, "createdAt");
+            case "oldest"         -> Sort.by(Sort.Direction.ASC,  "createdAt");
+            case "most_expensive" -> Sort.by(Sort.Direction.DESC, "total");
+            case "cheapest"       -> Sort.by(Sort.Direction.ASC,  "total");
+            default               -> Sort.by(Sort.Direction.DESC, "createdAt");
         };
     }
 
@@ -287,7 +283,7 @@ public class OrderService {
         return orderMapper.toOrderResponse(saved);
     }
 
-    // [22] Histórico de status — escrita explícita no service em vez de @EntityListener.
+    // Histórico de status — escrita explícita no service em vez de @EntityListener.
     // Motivo: persistir entidade dentro de @PreUpdate exige BeanUtil estático para DI
     // e tem comportamento frágil durante o flush do Hibernate. Service-level é testável,
     // determinístico, e cobre todas as transições atuais (complete/cancel).

@@ -18,7 +18,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "orders",
         uniqueConstraints = {
-                // MT-21: order_code único por tenant (não globalmente)
+                // order_code único por tenant, não globalmente
                 @UniqueConstraint(name = "uk_orders_customer_saas_order_code", columnNames = {"customer_saas_id", "order_code"})
         },
         indexes = {
@@ -80,7 +80,7 @@ public class Order extends BaseEntity {
     private LocalDateTime deletedAt;
 
     // Sem CascadeType.REMOVE: soft-delete do Order não deve apagar itens fisicamente.
-    // Itens permanecem em order_items (acessíveis após restore via [21]).
+    // Itens permanecem em order_items (acessíveis após restore).
     // orphanRemoval=true ainda funciona para remoção de item individual durante edição.
     @OneToMany(
             mappedBy = "order",

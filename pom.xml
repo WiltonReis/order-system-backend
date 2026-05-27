@@ -124,14 +124,14 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
-        <!-- BP-01: OpenAPI / Swagger UI -->
+        <!-- OpenAPI / Swagger UI -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.5.0</version>
         </dependency>
 
-        <!-- BP-03: Health check / Actuator -->
+        <!-- Health check / Actuator -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -168,7 +168,7 @@
             <version>1.5.2</version>
         </dependency>
 
-        <!-- MT-06: AOP for tenant filter aspect -->
+        <!-- AOP para aspect de filtro de tenant -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>

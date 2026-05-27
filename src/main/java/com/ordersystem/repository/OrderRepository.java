@@ -17,14 +17,14 @@ import java.util.UUID;
 
 public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order> {
 
-    // PERF-01: busca paginada de IDs (leve) + busca de detalhes por IDs (evita N+1 e HHH90003004)
+    // Busca paginada de IDs (leve) + busca de detalhes por IDs (evita N+1 e HHH90003004)
     @Query(value = "SELECT o.id FROM Order o", countQuery = "SELECT COUNT(o) FROM Order o")
     Page<UUID> findAllIdsPaged(Pageable pageable);
 
     @Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.user LEFT JOIN FETCH o.items i LEFT JOIN FETCH i.product WHERE o.id IN :ids")
     List<Order> findAllWithDetailsByIds(@Param("ids") List<UUID> ids);
 
-    // PERF-02: versões paginadas das listagens (JOIN FETCH em @ManyToOne é seguro com Pageable)
+    // Versões paginadas das listagens — JOIN FETCH em @ManyToOne é seguro com Pageable
     @Query(value = "SELECT o FROM Order o JOIN FETCH o.user",
            countQuery = "SELECT COUNT(o) FROM Order o")
     Page<Order> findAllWithUsersPaged(Pageable pageable);
@@ -44,11 +44,11 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query(value = "SELECT * FROM orders WHERE id = :id", nativeQuery = true)
     Optional<Order> findByIdIncludingDeleted(@Param("id") UUID id);
 
-    // MT-21: próximo código de pedido por tenant (MAX+1); SERIALIZABLE na camada de serviço garante atomicidade
+    // Próximo código de pedido por tenant via MAX+1; SERIALIZABLE na camada de serviço garante atomicidade
     @Query(value = "SELECT COALESCE(MAX(CAST(order_code AS BIGINT)), 0) + 1 FROM orders WHERE customer_saas_id = :tenantId", nativeQuery = true)
     Long getNextOrderCodeForTenant(@Param("tenantId") UUID tenantId);
 
-    // MT-23: filtragem explícita por tenant em queries de agregação (não depender só do @Filter)
+    // Filtragem explícita por tenant em queries de agregação — não depende só do @Filter
     @Query("SELECT COUNT(o) FROM Order o WHERE o.createdAt >= :from AND o.createdAt <= :to AND o.customerSaas.id = :tenantId")
     long countByCreatedAtBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to, @Param("tenantId") UUID tenantId);
 
