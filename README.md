@@ -33,7 +33,6 @@ Não é um produto real e nem tem a pretensão de ser. É onde eu pratico decis�
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [API](#api)
 - [Prints e gifs](#prints-e-gifs)
-- [Melhorias futuras](#melhorias-futuras)
 - [Autor](#autor)
 - [Licença](#licença)
 
@@ -301,7 +300,19 @@ O Flyway aplica as migrations sozinho na primeira vez. Nesse modo o Loki não so
 mvn verify
 ```
 
-Os testes de integração usam Testcontainers, então o Docker precisa estar rodando: ele sobe um PostgreSQL 16 de verdade, aplica as migrations e roda os testes contra o banco real. O destaque é o `TenantIsolationIntegrationTest`, que prova o isolamento entre empresas. O resto cobre os fluxos de auth, pedidos, produtos e usuários nos services.
+Os testes cobrem três camadas:
+
+**Unitários (service):** lógica de negócio com Mockito. Cobrem criação e ciclo de vida de pedidos, geração de PDF, tokens de refresh, blacklist de JTI, rate limiter e dashboard.
+
+**Camada web (`@WebMvcTest`):** testes de slice, sem banco. Verificam status HTTP, Bean Validation e autorização `@PreAuthorize` por role — rápidos e focados no contrato HTTP.
+
+**Integração (Testcontainers):** sobe um PostgreSQL 16 de verdade, aplica as migrations e roda contra o banco real. Destaques:
+
+- `TenantIsolationIntegrationTest` — dois tenants ativos ao mesmo tempo; confirma que um nunca lê dado do outro, nem registros excluídos.
+- `AuthorizationIntegrationTest` — cada operação ADMIN-only exercitada com role `USER` (→ 403) e com `ADMIN` (→ sucesso).
+- `TokenSecurityIntegrationTest` — token expirado e assinatura adulterada → 401; refresh com JTI revogado → rejeitado.
+- `RateLimitIntegrationTest` — esgota o bucket de `/auth/login` e confirma o 429.
+- `OrderQueryPerformanceTest` — via Hibernate Statistics, garante que `/orders/details` executa ≤ 3 queries independente do volume de dados.
 
 ---
 
