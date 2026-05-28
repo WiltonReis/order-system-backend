@@ -2,6 +2,9 @@ package com.ordersystem.integration;
 
 import com.ordersystem.service.LoginRateLimiterService;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.MethodOrderer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -10,6 +13,11 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 
+// PER_CLASS: permite @BeforeAll não-estático e compartilhamento de estado entre testes
+// da mesma subclass. Subclasses DEVEM garantir que cada @Test seja independente de ordem
+// — validado via @TestMethodOrder(Random).
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@TestMethodOrder(MethodOrderer.Random.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
 public abstract class BaseIntegrationTest {

@@ -6,10 +6,8 @@ import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -24,9 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DisplayName("Isolamento multi-tenant")
-//@ActiveProfiles("test")
 class TenantIsolationIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
