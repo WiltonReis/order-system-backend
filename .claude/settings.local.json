@@ -38,7 +38,11 @@
       "PowerShell(git *)",
       "PowerShell(ls \"C:\\\\Users\\\\Wilton\\\\Desktop\\\\Projetos\\\\order-system\\\\order-system-backend\\\\src\\\\main\\\\java\" -Recurse | Where-Object { $_.PSIsContainer } | Select-Object FullName)",
       "PowerShell(ls \"C:\\\\Users\\\\Wilton\\\\Desktop\\\\Projetos\\\\order-system\\\\order-system-backend\\\\src\\\\test\\\\java\\\\com\\\\ordersystem\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object Name)",
-      "Bash(./mvnw -q test -Dtest=\"*ControllerTest\")"
+      "Bash(./mvnw -q test -Dtest=\"*ControllerTest\")",
+      "Bash(mvn dependency:list -q)",
+      "Bash(mvn dependency:list)",
+      "Bash(xargs jar tf)",
+      "Bash(xargs -I{} javap -classpath {} org.hibernate.stat.Statistics)"
     ]
   }
 }
