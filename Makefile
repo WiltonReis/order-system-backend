@@ -1,4 +1,4 @@
-COMPOSE = docker compose
+dCOMPOSE = docker compose
 
 .PHONY: up down logs dev
 
