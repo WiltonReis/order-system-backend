@@ -67,7 +67,6 @@ Não é um produto real e nem tem a pretensão de ser. É onde eu pratico decis�
 - Spring Security
 - JJWT para gerar e validar os tokens
 - Bucket4j (com Caffeine) para o rate limiting
-- caelum-stella para validar CPF e CNPJ
 
 **Observabilidade**
 - Micrometer (Prometheus em dev, OTLP push em produção)
@@ -227,7 +226,7 @@ Nada. Toda a observabilidade de produção cabe no free tier do Grafana Cloud co
 | Cookie `Secure` | obrigatório em produção; a aplicação nem sobe se vier desligado em prod |
 | Autorização | `@PreAuthorize` por role em todas as rotas protegidas |
 | Rate limiting | 10 req/min no login e registro, 5 req/min no refresh |
-| CPF/CNPJ | validação com o algoritmo oficial (caelum-stella) |
+| CPF/CNPJ | validação de formato (11 ou 14 dígitos); sem dígito verificador, pra facilitar testes |
 | Erros | resposta padronizada em `application/problem+json` com `requestId` e erros por campo |
 | CORS | origens liberadas vêm de variável de ambiente |
 | Métricas | o `/actuator/prometheus` fica atrás de Basic Auth com um usuário dedicado |

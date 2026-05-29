@@ -9,8 +9,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Valida CPF (11 dígitos) ou CNPJ (14 dígitos) usando o algoritmo oficial
- * via caelum-stella. Aceita entrada com ou sem máscara (pontos, traços, barras).
+ * Valida o formato de CPF (11 dígitos) ou CNPJ (14 dígitos). Aceita entrada com
+ * ou sem máscara (pontos, traços, barras). Não checa o dígito verificador, pra
+ * facilitar o cadastro de quem está testando o projeto.
  *
  * Não exige presença — combinar com {@link jakarta.validation.constraints.NotBlank}
  * quando o campo for obrigatório. Valor null ou em branco é considerado válido aqui.

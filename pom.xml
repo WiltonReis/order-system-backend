@@ -187,13 +187,6 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
-        <!-- Caelum Stella: validação de CPF/CNPJ (algoritmo oficial pt-BR) -->
-        <dependency>
-            <groupId>br.com.caelum.stella</groupId>
-            <artifactId>caelum-stella-core</artifactId>
-            <version>2.1.7</version>
-        </dependency>
-
         <!-- Observabilidade: encoder JSON estruturado para logs em produção -->
         <dependency>
             <groupId>net.logstash.logback</groupId>

@@ -42,7 +42,8 @@
       "Bash(mvn dependency:list -q)",
       "Bash(mvn dependency:list)",
       "Bash(xargs jar tf)",
-      "Bash(xargs -I{} javap -classpath {} org.hibernate.stat.Statistics)"
+      "Bash(xargs -I{} javap -classpath {} org.hibernate.stat.Statistics)",
+      "PowerShell(.\\\\mvnw.cmd -q -o compile 2>&1 | Select-Object -Last 20)"
     ]
   }
 }
