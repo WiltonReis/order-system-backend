@@ -65,6 +65,25 @@ services:
       postgres:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ../order-system-frontend
+      dockerfile: Dockerfile
+      args:
+        # VITE_API_URL é embutido em build time e usado pelo navegador (axios client-side),
+        # então aponta para a porta do backend mapeada no host — não para "backend:8080".
+        VITE_API_URL: http://localhost:8080
+    container_name: oms-frontend
+    restart: unless-stopped
+    # Container expõe nginx na porta 80; mapeada para 3000 no host para casar com
+    # APP_CORS_ALLOWED_ORIGINS (http://localhost:3000) do backend.
+    ports:
+      - "3000:80"
+    networks:
+      - oms-network
+    depends_on:
+      - backend
+
   # ─── Observability ───────────────────────────────────────────────────────────
 
   prometheus:

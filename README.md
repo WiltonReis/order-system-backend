@@ -33,6 +33,7 @@ Não é um produto real e nem tem a pretensão de ser. É onde eu pratico decis�
 - [Variáveis de ambiente](#variáveis-de-ambiente)
 - [API](#api)
 - [Prints e gifs](#prints-e-gifs)
+- [O que eu mudaria num cenário real de produção/SaaS](#o-que-eu-mudaria-num-cenário-real-de-produçãosaas)
 - [Autor](#autor)
 - [Licença](#licença)
 
@@ -401,6 +402,21 @@ Exemplo de corpo do `POST /orders/full`:
 **Teste de isolamento entre empresas**
 
 ![Teste de isolamento multi-tenant](docs/screenshots/multi-tenant-test.png)
+
+---
+
+## O que eu mudaria num cenário real de produção/SaaS
+
+Esse projeto é um portfólio, não um produto de verdade. Por isso muita coisa foi decidida mirando simplicidade, custo zero e velocidade pra entregar, o que pro escopo dele foi a escolha certa. Mas se isso fosse virar um SaaS real, com mais clientes, mais gente no time e exigências maiores de segurança, algumas coisas eu faria diferente. Não é consertar erro; é mostrar que sei onde cada atalho vale a pena e onde ele deixa de valer.
+
+| Hoje | O que eu mudaria | Por quê |
+|------|------------------|---------|
+| Deploy no Fly.io (simples, região em SP, custo zero com auto-stop) | Migrar pra **AWS ECS** | Encaixa melhor no resto da AWS (RDS, S3, IAM, Secrets Manager), escala de forma mais previsível e roda em plataforma feita pra carga real, sem o app dormir quando não tem tráfego. |
+| Autenticação com JWT próprio em cookie `httpOnly` e refresh token | Adotar **OAuth2/OIDC** | Permite login com Google, Microsoft e afins, deixa a identidade num provedor dedicado em vez de espalhar isso pela aplicação, e traz segurança madura de fábrica: rotação de chaves, fluxos padronizados e auditoria de acesso. |
+| Monólito (decisão consciente, explicada na seção de arquitetura) | Separar alguns domínios em **microsserviços** (pedidos, identidade, faturamento) | Só faz sentido com escala e vários times: cada um cuida do seu serviço no próprio ritmo, os deploys param de andar juntos e dá pra escalar só o que precisa. |
+| Isolamento entre empresas por coluna `customer_saas_id`, aplicada via filtro do Hibernate | Avaliar **um schema por empresa** | O próprio banco passa a garantir o isolamento, o que reduz o risco de uma empresa enxergar dados de outra por causa de um bug. Backup, restore e limites por cliente também ficam mais simples. |
+| Empresa se cadastra e já sai com o ADMIN ativo, sem confirmar e-mail | Adicionar **verificação de e-mail** antes de liberar a conta | Barra cadastro falso e fraude, garante um canal de contato real com o cliente e melhora a rastreabilidade de quem usa a plataforma. |
+| Sem cobrança | Integrar **pagamento** (Stripe ou parecido) e **assinaturas** | Num SaaS de verdade, monetização não é opcional: planos, cobrança recorrente, inadimplência e limites por plano. Conversa direto com o multi-tenancy, já que cada empresa passa a ter um plano e um ciclo de cobrança. |
 
 ---
 
